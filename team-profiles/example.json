@@ -1,0 +1,124 @@
+{
+  "$schema": "./profile.schema.json",
+  "teamName": "Platform Team",
+  "description": "Core platform and infrastructure team",
+
+  "techStack": {
+    "backend": {
+      "language": "C# / .NET 9",
+      "framework": "FastEndpoints",
+      "database": "PostgreSQL",
+      "messaging": "RabbitMQ with MassTransit",
+      "cache": "Redis",
+      "auth": "Keycloak (OIDC)"
+    },
+    "frontend": {
+      "language": "TypeScript",
+      "framework": "React Native with Expo",
+      "stateManagement": "React Query + Zustand",
+      "styling": "NativeWind (Tailwind CSS)",
+      "testing": "Jest (unit), Playwright (E2E)"
+    },
+    "infrastructure": {
+      "containerization": "Docker",
+      "orchestration": "Docker Compose (dev), Kubernetes (prod)",
+      "ci": "GitHub Actions",
+      "monitoring": "Prometheus + Grafana + Loki",
+      "storage": "SeaweedFS (object storage)"
+    }
+  },
+
+  "conventions": {
+    "api": {
+      "style": "RESTful",
+      "versioning": "URL-based (/api/v1/...)",
+      "authentication": "Bearer JWT via Keycloak",
+      "naming": "kebab-case for URLs, PascalCase for DTOs"
+    },
+    "git": {
+      "branching": "trunk-based with short-lived feature branches",
+      "commitStyle": "conventional commits (feat:, fix:, chore:, etc.)",
+      "prProcess": "Review required, CI must pass, squash merge"
+    },
+    "code": {
+      "maxFileLength": 300,
+      "maxFunctionLength": 50,
+      "maxComponentLength": 200,
+      "testingPhilosophy": "Unit tests for logic, E2E tests for user flows",
+      "errorHandling": "Result pattern (no exceptions for expected failures)"
+    },
+    "estimation": {
+      "method": "T-shirt sizes",
+      "scale": {
+        "XS": "< 2 hours",
+        "S": "2-4 hours",
+        "M": "4-8 hours (half day to full day)",
+        "L": "1-2 days",
+        "XL": "2-3 days"
+      },
+      "storyPointMapping": {
+        "XS": 1,
+        "S": 2,
+        "M": 3,
+        "L": 5,
+        "XL": 8
+      }
+    }
+  },
+
+  "team": {
+    "size": "3 backend, 2 frontend, 1 QA, 1 tech lead",
+    "sprintLength": "2 weeks",
+    "capacity": "Roughly 40-50 story points per sprint",
+    "workingHours": "9am-6pm CET"
+  },
+
+  "projectManagement": {
+    "tool": "Jira",
+    "projectKey": "PROJ",
+    "issueTypes": {
+      "epic": "Epic",
+      "story": "Story",
+      "bug": "Bug",
+      "subtask": "Sub-task",
+      "task": "Task"
+    },
+    "customFields": {
+      "storyPoints": "customfield_10016",
+      "epicLink": "customfield_10014",
+      "sprint": "customfield_10020"
+    }
+  },
+
+  "documentation": {
+    "tool": "Confluence",
+    "spaceKey": "TECH",
+    "parentPages": {
+      "technicalAnalysis": "Technical Analysis",
+      "adrs": "Architecture Decisions",
+      "postMortems": "Incident Reports",
+      "runbooks": "Runbooks"
+    }
+  },
+
+  "services": [
+    {
+      "name": "Identity API",
+      "description": "Authentication, user management, tenants",
+      "repo": "Services/Identity",
+      "port": 5001
+    },
+    {
+      "name": "Questioner API",
+      "description": "Surveys and questionnaires",
+      "repo": "Services/Questioner",
+      "port": 5002
+    },
+    {
+      "name": "OnlineMenu API",
+      "description": "Menu management and public display",
+      "repo": "Services/OnlineMenu",
+      "port": 5003
+    }
+  ]
+}

@@ -79,9 +79,9 @@ Not every scenario needs the same output. The template registry routes each type
 | [New Feature](templates/full-pipeline/new-feature.md) | Feature implementation | Epic + Stories |
 | [Tech Migration](templates/full-pipeline/tech-migration.md) | Stack/library migration | Phased Epics |
 | [Large Refactoring](templates/full-pipeline/large-refactoring.md) | Major code restructuring | Epic + Stories |
-| API Breaking Change | Contract changes with consumer impact | Epic + Stories |
-| Security Audit | Vulnerability findings + remediation | Epic + Stories |
-| Performance Optimization | Bottleneck analysis + fix plan | Epic + Stories |
+| [API Breaking Change](templates/full-pipeline/api-breaking-change.md) | Contract changes with consumer impact | Epic + Stories |
+| [Security Audit](templates/full-pipeline/security-audit.md) | Vulnerability findings + remediation | Epic + Stories |
+| [Performance Optimization](templates/full-pipeline/performance-optimization.md) | Bottleneck analysis + fix plan | Epic + Stories |
 
 ### Confluence Only (Documentation, no tickets)
 
@@ -132,6 +132,17 @@ curl -X POST http://localhost:5678/webhook/analyze \
     "additionalContext": "We use PostgreSQL"
   }'
 ```
+
+## Team Context Profiles
+
+Inject your team's tech stack, conventions, and project management config into every prompt. This makes AI output specific to your environment instead of generic.
+
+```bash
+# Copy the example and customize
+cp team-profiles/example.json team-profiles/my-team.json
+```
+
+The profile includes your stack, API conventions, estimation scales, Jira config, Confluence spaces, and service inventory. See [team-profiles/example.json](team-profiles/example.json) for the full structure.
 
 ## Customization
 

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Team Profile",
+  "description": "Team context injected into AI prompts for more relevant, specific analysis output",
+  "type": "object",
+  "required": ["teamName", "techStack", "conventions"],
+  "properties": {
+    "teamName": {
+      "type": "string",
+      "description": "Name of the team or project"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the team's domain"
+    },
+    "techStack": {
+      "type": "object",
+      "description": "Technology stack details — the AI uses this to suggest specific patterns and tools",
+      "properties": {
+        "backend": { "type": "object", "additionalProperties": { "type": "string" } },
+        "frontend": { "type": "object", "additionalProperties": { "type": "string" } },
+        "infrastructure": { "type": "object", "additionalProperties": { "type": "string" } },
+        "mobile": { "type": "object", "additionalProperties": { "type": "string" } },
+        "data": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "conventions": {
+      "type": "object",
+      "description": "Team coding and process conventions",
+      "properties": {
+        "api": { "type": "object", "additionalProperties": { "type": "string" } },
+        "git": { "type": "object", "additionalProperties": { "type": "string" } },
+        "code": { "type": "object" },
+        "estimation": { "type": "object" }
+      }
+    },
+    "team": {
+      "type": "object",
+      "description": "Team composition and capacity"
+    },
+    "projectManagement": {
+      "type": "object",
+      "description": "Jira or other PM tool configuration"
+    },
+    "documentation": {
+      "type": "object",
+      "description": "Confluence or other docs tool configuration"
+    },
+    "services": {
+      "type": "array",
+      "description": "Services the team owns",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "repo": { "type": "string" },
+          "port": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
