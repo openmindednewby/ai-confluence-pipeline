@@ -264,15 +264,53 @@ Click the **"Publish"** button in the top-right corner of the workflow editor. T
 
 > **"Publish" doesn't make anything public.** n8n is running on your machine — the webhook is only reachable at `localhost:10353`. Nobody outside your computer can access it. The button just means "turn this workflow on."
 
-## 7. Test It
+## 7. Run It
+
+There are 3 ways to trigger the pipeline. Pick whichever feels most comfortable:
+
+### Option 1: Browser Form (easiest)
+
+Open `trigger.html` in your browser (just double-click the file). It's a simple form where you:
+1. Select the pipeline (Preview, Direct Push, or Direct Push without Jira)
+2. Type your feature description
+3. Optionally add context about your tech stack
+4. Click **"Generate Analysis"**
+5. Results appear on the same page — markdown preview or Confluence/Jira links
+
+No terminal needed. Works in any browser. Press **Ctrl+Enter** to submit quickly.
+
+> **Note:** n8n must be running (`docker compose up -d`) for the form to work. If you see "Cannot reach n8n", start it first.
+
+### Option 2: CLI Scripts (for terminal users)
 
 ```bash
-# Bash
-./scripts/trigger-analysis.sh "Add user notification preferences with email and push channels"
+# Preview (save markdown locally, push later)
+./scripts/trigger-preview.sh "Add user notification preferences"
 
-# PowerShell
-.\scripts\trigger-analysis.ps1 -Description "Add user notification preferences with email and push channels"
+# Direct push to Confluence + Jira
+./scripts/trigger-analysis.sh "Add user notification preferences"
+
+# Direct push to Confluence only (no Jira)
+./scripts/trigger-analysis.sh "Add user notification preferences" --no-jira
+
+# Push a previewed analysis to Confluence
+./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json
+./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json --jira
 ```
+
+```powershell
+# PowerShell equivalents
+.\scripts\trigger-preview.ps1 -Description "Add user notification preferences"
+.\scripts\trigger-analysis.ps1 -Description "Add user notification preferences"
+.\scripts\push-to-confluence.ps1 -File preview\20260324-143022-user-notifications.json -CreateJira
+```
+
+### Option 3: From n8n UI (test mode)
+
+1. Open the workflow in n8n (http://localhost:10353)
+2. Click **"Test Workflow"** (play button at bottom of the editor)
+3. n8n will wait for a webhook request — send one using the browser form or a script
+4. You can see each node's input/output by clicking on it — useful for debugging
 
 ## 8. Set Up Team Profile (Optional)
 

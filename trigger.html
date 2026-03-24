@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Confluence Pipeline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 2rem; }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: #f8fafc; }
+    .subtitle { color: #94a3b8; margin-bottom: 2rem; font-size: 0.875rem; }
+    .form-group { margin-bottom: 1.25rem; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: #cbd5e1; }
+    textarea, input, select { width: 100%; padding: 0.75rem; border: 1px solid #334155; border-radius: 0.5rem; background: #1e293b; color: #f1f5f9; font-size: 0.9rem; font-family: inherit; }
+    textarea:focus, input:focus, select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    textarea { min-height: 120px; resize: vertical; }
+    .row { display: flex; gap: 1rem; }
+    .row .form-group { flex: 1; }
+    .actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+    button { padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+    .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+    .btn-secondary:hover { background: #334155; }
+    .btn-secondary:disabled { color: #6b7280; cursor: not-allowed; }
+    .status { margin-top: 1.5rem; padding: 1rem; border-radius: 0.5rem; font-size: 0.875rem; display: none; }
+    .status.loading { display: block; background: #1e3a5f; border: 1px solid #2563eb; color: #93c5fd; }
+    .status.success { display: block; background: #14532d; border: 1px solid #22c55e; color: #86efac; }
+    .status.error { display: block; background: #450a0a; border: 1px solid #ef4444; color: #fca5a5; }
+    .result { margin-top: 1.5rem; }
+    .result h3 { font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.5rem; }
+    .result pre { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem; overflow-x: auto; font-size: 0.8rem; color: #e2e8f0; max-height: 500px; overflow-y: auto; white-space: pre-wrap; }
+    .result a { color: #818cf8; }
+    .links { margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .links a { color: #818cf8; font-size: 0.8rem; text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+    .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+    .pill-free { background: #14532d; color: #86efac; }
+    .pill-local { background: #1e3a5f; color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AI Confluence Pipeline</h1>
+    <p class="subtitle">Generate technical analysis, push to Confluence, create Jira tickets <span class="pill pill-local">LOCAL</span></p>
+
+    <div class="form-group">
+      <label for="pipeline">Pipeline</label>
+      <select id="pipeline">
+        <option value="preview">Preview — save as markdown, push later (recommended)</option>
+        <option value="analyze">Direct Push — create Confluence page + Jira tickets now</option>
+        <option value="analyze-no-jira">Direct Push — Confluence page only (no Jira)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="description">Feature / Task Description</label>
+      <textarea id="description" placeholder="e.g., Add user notification preferences with email, push, and in-app channels. Users should be able to configure which events trigger notifications and through which channels."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="context">Additional Context (optional)</label>
+      <textarea id="context" rows="3" placeholder="e.g., We use PostgreSQL, React Native frontend, .NET backend with FastEndpoints. Push notifications via Firebase."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="submit" onclick="runPipeline()">Generate Analysis</button>
+      <button class="btn-secondary" id="clear" onclick="clearForm()">Clear</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="result" id="result" style="display:none;">
+      <h3>Result</h3>
+      <div id="result-links" class="links"></div>
+      <pre id="result-content"></pre>
+    </div>
+  </div>
+
+  <script>
+    const PORT = 10353;
+
+    async function runPipeline() {
+      const pipeline = document.getElementById('pipeline').value;
+      const description = document.getElementById('description').value.trim();
+      const context = document.getElementById('context').value.trim();
+      const status = document.getElementById('status');
+      const result = document.getElementById('result');
+      const resultContent = document.getElementById('result-content');
+      const resultLinks = document.getElementById('result-links');
+
+      if (!description) {
+        status.className = 'status error';
+        status.textContent = 'Please enter a description.';
+        return;
+      }
+
+      document.getElementById('submit').disabled = true;
+      status.className = 'status loading';
+      status.textContent = 'Generating analysis... this takes 15-60 seconds depending on the model.';
+      result.style.display = 'none';
+
+      const isPreview = pipeline === 'preview';
+      const webhookPath = isPreview ? 'preview' : 'analyze';
+
+      const body = {
+        featureDescription: description,
+        additionalContext: context
+      };
+
+      if (!isPreview) {
+        body.createJiraTasks = pipeline !== 'analyze-no-jira';
+      }
+
+      try {
+        const response = await fetch(`http://localhost:${PORT}/webhook/${webhookPath}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.analysis || data.markdown) {
+          status.className = 'status success';
+
+          if (isPreview) {
+            status.textContent = `Analysis generated: ${data.title}. Copy the markdown below or use the preview scripts to save to file.`;
+            resultLinks.innerHTML = '';
+            resultContent.textContent = data.markdown || JSON.stringify(data.analysis, null, 2);
+          } else {
+            const parts = [];
+            if (data.confluencePage?.url) parts.push(`Confluence: ${data.confluencePage.url}`);
+            if (data.taskCount > 0) parts.push(`${data.taskCount} Jira tickets created`);
+            status.textContent = parts.join(' | ') || 'Done!';
+
+            resultLinks.innerHTML = '';
+            if (data.confluencePage?.url) {
+              resultLinks.innerHTML += `<a href="${data.confluencePage.url}" target="_blank">Open Confluence Page</a>`;
+            }
+            if (data.jiraIssues?.length) {
+              for (const issue of data.jiraIssues) {
+                if (issue.url) resultLinks.innerHTML += `<a href="${issue.url}" target="_blank">${issue.key}</a>`;
+              }
+            }
+            resultContent.textContent = JSON.stringify(data, null, 2);
+          }
+
+          result.style.display = 'block';
+        } else {
+          throw new Error(JSON.stringify(data, null, 2));
+        }
+      } catch (e) {
+        status.className = 'status error';
+        if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+          status.textContent = `Cannot reach n8n at localhost:${PORT}. Is it running? (docker compose up -d)`;
+        } else {
+          status.textContent = `Error: ${e.message}`;
+        }
+        result.style.display = 'none';
+      }
+
+      document.getElementById('submit').disabled = false;
+    }
+
+    function clearForm() {
+      document.getElementById('description').value = '';
+      document.getElementById('context').value = '';
+      document.getElementById('status').className = 'status';
+      document.getElementById('result').style.display = 'none';
+    }
+
+    // Allow Ctrl+Enter to submit
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') runPipeline();
+    });
+  </script>
+</body>
+</html>
