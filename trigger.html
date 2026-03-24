@@ -75,12 +75,18 @@
     <div class="result" id="result" style="display:none;">
       <h3>Result</h3>
       <div id="result-links" class="links"></div>
+      <div id="download-actions" style="display:none; margin-bottom: 0.75rem;">
+        <button class="btn-primary" id="download-md" onclick="downloadFile('md')" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Download .md</button>
+        <button class="btn-secondary" id="download-json" onclick="downloadFile('json')" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Download .json</button>
+        <button class="btn-secondary" id="copy-md" onclick="copyMarkdown()" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Copy Markdown</button>
+      </div>
       <pre id="result-content"></pre>
     </div>
   </div>
 
   <script>
     const PORT = 10353;
+    let lastResult = null; // stores the last response for download
 
     async function runPipeline() {
       const pipeline = document.getElementById('pipeline').value;
@@ -127,10 +133,14 @@
           status.className = 'status success';
 
           if (isPreview) {
-            status.textContent = `Analysis generated: ${data.title}. Copy the markdown below or use the preview scripts to save to file.`;
+            lastResult = data;
+            status.textContent = `Analysis generated: ${data.title}. Download the files or copy the markdown below.`;
             resultLinks.innerHTML = '';
+            document.getElementById('download-actions').style.display = 'flex';
+            document.getElementById('download-actions').style.gap = '0.5rem';
             resultContent.textContent = data.markdown || JSON.stringify(data.analysis, null, 2);
           } else {
+            document.getElementById('download-actions').style.display = 'none';
             const parts = [];
             if (data.confluencePage?.url) parts.push(`Confluence: ${data.confluencePage.url}`);
             if (data.taskCount > 0) parts.push(`${data.taskCount} Jira tickets created`);
@@ -170,6 +180,49 @@
       document.getElementById('context').value = '';
       document.getElementById('status').className = 'status';
       document.getElementById('result').style.display = 'none';
+      document.getElementById('download-actions').style.display = 'none';
+      lastResult = null;
+    }
+
+    function getFilename(ext) {
+      if (!lastResult) return `analysis.${ext}`;
+      const title = lastResult.title || 'analysis';
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);
+      const timestamp = new Date().toISOString().replace(/[T:]/g, '-').split('.')[0];
+      return `${timestamp}-${slug}.${ext}`;
+    }
+
+    function downloadFile(type) {
+      if (!lastResult) return;
+      let content, mimeType, filename;
+
+      if (type === 'md') {
+        content = lastResult.markdown;
+        mimeType = 'text/markdown';
+        filename = getFilename('md');
+      } else {
+        content = JSON.stringify(lastResult.analysis, null, 2);
+        mimeType = 'application/json';
+        filename = getFilename('json');
+      }
+
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function copyMarkdown() {
+      if (!lastResult?.markdown) return;
+      navigator.clipboard.writeText(lastResult.markdown).then(() => {
+        const btn = document.getElementById('copy-md');
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 2000);
+      });
     }
 
     // Allow Ctrl+Enter to submit
