@@ -2,10 +2,13 @@
 
 ## Prerequisites
 
-- Docker & Docker Compose
+- **Docker Desktop** — required to run n8n
+  - **Windows:** Download from https://docs.docker.com/desktop/setup/install/windows-install/ → run the installer → restart your PC if prompted
+  - **Mac:** Download from https://docs.docker.com/desktop/setup/install/mac-install/ (Intel or Apple Silicon)
+  - **Linux:** Follow https://docs.docker.com/desktop/setup/install/linux/
+  - After install, open Docker Desktop and make sure it says **"Docker Desktop is running"** in the bottom-left
 - Confluence Cloud (with API token)
 - Jira Cloud (with API token) — optional
-- Anthropic API key (or OpenAI)
 
 > **n8n licensing:** n8n is free for self-hosted use (fair-code / Sustainable Use License). No user, workflow, or execution limits. You only need a paid license if you resell it or offer it as a hosted service. For details or fully open-source alternatives, see the [FAQ in README](../README.md#faq).
 
@@ -115,11 +118,26 @@ Edit `.env` with your values:
 
 ## 3. Start n8n
 
+Make sure Docker Desktop is running, then:
+
 ```bash
 docker compose up -d
 ```
 
-Open http://localhost:10353 and log in with the credentials from `.env`.
+This downloads the [official n8n Docker image](https://hub.docker.com/r/n8nio/n8n) (~400 MB on first run) and starts it in the background. You'll see:
+
+```
+[+] Running 1/1
+ ✔ Container ai-confluence-pipeline-n8n-1  Started
+```
+
+> **First time?** The initial download takes 1-3 minutes depending on your internet. Subsequent starts are instant.
+>
+> **n8n Docker image:** https://hub.docker.com/r/n8nio/n8n — this is the official image pulled automatically by `docker compose up`. You don't need to download it manually.
+>
+> **Troubleshooting:** If you get `docker: command not found`, Docker Desktop isn't installed or isn't running. If you get a port conflict, change `N8N_PORT` in `.env`.
+
+Open http://localhost:10353 and log in with the credentials from `.env` (`N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD`).
 
 ## 4. Import the Workflow
 
