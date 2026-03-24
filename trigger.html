@@ -127,9 +127,16 @@
           body: JSON.stringify(body)
         });
 
-        const data = await response.json();
+        let data = await response.json();
 
-        if (data.success || data.analysis || data.markdown) {
+        // n8n lastNode mode may wrap response in an array or under nested keys
+        if (Array.isArray(data)) data = data[0];
+        if (data?.json) data = data.json;
+
+        // Check if we got a valid response (any of these fields means success)
+        const isSuccess = data.success || data.analysis || data.markdown || data.title || data.confluencePage;
+
+        if (isSuccess) {
           status.className = 'status success';
 
           if (isPreview) {
@@ -159,8 +166,17 @@
           }
 
           result.style.display = 'block';
+        } else if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`);
         } else {
-          throw new Error(JSON.stringify(data, null, 2));
+          // Response is 200 but unexpected shape — show it anyway
+          status.className = 'status success';
+          status.textContent = 'Analysis complete (unexpected response format — showing raw output)';
+          lastResult = data;
+          resultLinks.innerHTML = '';
+          document.getElementById('download-actions').style.display = 'none';
+          resultContent.textContent = JSON.stringify(data, null, 2);
+          result.style.display = 'block';
         }
       } catch (e) {
         status.className = 'status error';
