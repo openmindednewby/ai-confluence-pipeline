@@ -39,6 +39,26 @@
     .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
     .pill-free { background: #14532d; color: #86efac; }
     .pill-local { background: #1e3a5f; color: #93c5fd; }
+    .tab-active { background: #6366f1 !important; color: white !important; border-color: #6366f1 !important; }
+    .rendered-markdown { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1.5rem; overflow-x: auto; font-size: 0.875rem; color: #e2e8f0; max-height: 700px; overflow-y: auto; line-height: 1.6; }
+    .rendered-markdown h1 { font-size: 1.5rem; color: #f8fafc; margin: 0 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 1px solid #334155; }
+    .rendered-markdown h2 { font-size: 1.2rem; color: #f1f5f9; margin: 1.5rem 0 0.75rem 0; padding-bottom: 0.35rem; border-bottom: 1px solid #1e293b; }
+    .rendered-markdown h3 { font-size: 1rem; color: #e2e8f0; margin: 1.25rem 0 0.5rem 0; }
+    .rendered-markdown h4 { font-size: 0.9rem; color: #cbd5e1; margin: 1rem 0 0.4rem 0; }
+    .rendered-markdown p { margin: 0.5rem 0; }
+    .rendered-markdown strong { color: #f8fafc; }
+    .rendered-markdown blockquote { border-left: 3px solid #6366f1; padding-left: 1rem; margin: 0.75rem 0; color: #94a3b8; }
+    .rendered-markdown hr { border: none; border-top: 1px solid #334155; margin: 1.5rem 0; }
+    .rendered-markdown ul, .rendered-markdown ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+    .rendered-markdown li { margin: 0.25rem 0; }
+    .rendered-markdown code { background: #0f172a; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-size: 0.8rem; color: #a5b4fc; }
+    .rendered-markdown pre { background: #0f172a; border: 1px solid #334155; border-radius: 0.375rem; padding: 0.75rem; overflow-x: auto; margin: 0.75rem 0; }
+    .rendered-markdown pre code { background: none; padding: 0; color: #e2e8f0; }
+    .rendered-markdown table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.8rem; }
+    .rendered-markdown th { background: #0f172a; padding: 0.5rem 0.75rem; text-align: left; border: 1px solid #334155; color: #94a3b8; font-weight: 600; }
+    .rendered-markdown td { padding: 0.5rem 0.75rem; border: 1px solid #334155; }
+    .rendered-markdown tr:hover td { background: #0f172a33; }
+    .rendered-markdown a { color: #818cf8; }
   </style>
 </head>
 <body>
@@ -73,14 +93,21 @@
     <div class="status" id="status"></div>
 
     <div class="result" id="result" style="display:none;">
-      <h3>Result</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h3 style="margin: 0;">Result</h3>
+        <div id="view-toggle" style="display: none;">
+          <button class="btn-secondary tab-active" id="tab-preview" onclick="switchView('preview')" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; border-radius: 0.375rem 0 0 0.375rem;">Preview</button>
+          <button class="btn-secondary" id="tab-raw" onclick="switchView('raw')" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; border-radius: 0 0.375rem 0.375rem 0; margin-left: -1px;">Raw Markdown</button>
+        </div>
+      </div>
       <div id="result-links" class="links"></div>
       <div id="download-actions" style="display:none; margin-bottom: 0.75rem;">
         <button class="btn-primary" id="download-md" onclick="downloadFile('md')" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Download .md</button>
         <button class="btn-secondary" id="download-json" onclick="downloadFile('json')" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Download .json</button>
         <button class="btn-secondary" id="copy-md" onclick="copyMarkdown()" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Copy Markdown</button>
       </div>
-      <pre id="result-content"></pre>
+      <div id="result-preview" class="rendered-markdown"></div>
+      <pre id="result-content" style="display: none;"></pre>
     </div>
   </div>
 
@@ -145,9 +172,16 @@
             resultLinks.innerHTML = '';
             document.getElementById('download-actions').style.display = 'flex';
             document.getElementById('download-actions').style.gap = '0.5rem';
-            resultContent.textContent = data.markdown || JSON.stringify(data.analysis, null, 2);
+            document.getElementById('view-toggle').style.display = 'flex';
+            const md = data.markdown || JSON.stringify(data.analysis, null, 2);
+            resultContent.textContent = md;
+            document.getElementById('result-preview').innerHTML = markdownToHtml(md);
+            switchView('preview');
           } else {
             document.getElementById('download-actions').style.display = 'none';
+            document.getElementById('view-toggle').style.display = 'none';
+            document.getElementById('result-preview').style.display = 'none';
+            resultContent.style.display = 'block';
             const parts = [];
             if (data.confluencePage?.url) parts.push(`Confluence: ${data.confluencePage.url}`);
             if (data.taskCount > 0) parts.push(`${data.taskCount} Jira tickets created`);
@@ -197,7 +231,68 @@
       document.getElementById('status').className = 'status';
       document.getElementById('result').style.display = 'none';
       document.getElementById('download-actions').style.display = 'none';
+      document.getElementById('view-toggle').style.display = 'none';
+      document.getElementById('result-preview').innerHTML = '';
       lastResult = null;
+    }
+
+    function switchView(view) {
+      const preview = document.getElementById('result-preview');
+      const raw = document.getElementById('result-content');
+      const tabPreview = document.getElementById('tab-preview');
+      const tabRaw = document.getElementById('tab-raw');
+      if (view === 'preview') {
+        preview.style.display = 'block';
+        raw.style.display = 'none';
+        tabPreview.classList.add('tab-active');
+        tabRaw.classList.remove('tab-active');
+      } else {
+        preview.style.display = 'none';
+        raw.style.display = 'block';
+        tabPreview.classList.remove('tab-active');
+        tabRaw.classList.add('tab-active');
+      }
+    }
+
+    function markdownToHtml(md) {
+      // Simple markdown to HTML converter (no external deps)
+      let html = md;
+      // Code blocks (``` ... ```)
+      html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) =>
+        `<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;').trim()}</code></pre>`);
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Tables
+      html = html.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)*)/gm, (_, header, sep, body) => {
+        const ths = header.split('|').filter(c => c.trim()).map(c => `<th>${c.trim()}</th>`).join('');
+        const rows = body.trim().split('\n').map(row => {
+          const tds = row.split('|').filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join('');
+          return `<tr>${tds}</tr>`;
+        }).join('');
+        return `<table><thead><tr>${ths}</tr></thead><tbody>${rows}</tbody></table>`;
+      });
+      // Headers
+      html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      // Bold and italic
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      // Blockquotes
+      html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+      // Unordered lists
+      html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+      html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+      // Horizontal rules
+      html = html.replace(/^---$/gm, '<hr>');
+      // Links
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+      // Paragraphs (lines not already wrapped in HTML tags)
+      html = html.replace(/^(?!<[a-z/])(.+)$/gm, '<p>$1</p>');
+      // Clean up empty paragraphs
+      html = html.replace(/<p>\s*<\/p>/g, '');
+      return html;
     }
 
     function getFilename(ext) {
