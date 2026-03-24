@@ -7,8 +7,9 @@
   - **Mac:** Download from https://docs.docker.com/desktop/setup/install/mac-install/ (Intel or Apple Silicon)
   - **Linux:** Follow https://docs.docker.com/desktop/setup/install/linux/
   - After install, open Docker Desktop and make sure it says **"Docker Desktop is running"** in the bottom-left
-- Confluence Cloud (with API token)
-- Jira Cloud (with API token) — optional
+- **GitHub account** — for the free AI (GitHub Models API). No paid plan needed.
+- **Confluence Cloud** — with an API token (see step 1)
+- **Jira Cloud** — optional, with an API token
 
 > **n8n licensing:** n8n is free for self-hosted use (fair-code / Sustainable Use License). No user, workflow, or execution limits. You only need a paid license if you resell it or offer it as a hosted service. For details or fully open-source alternatives, see the [FAQ in README](../README.md#faq).
 
@@ -230,6 +231,10 @@ Same as Pipeline B, but uses Claude directly via Anthropic API
 
 ## 5. Set Up Credentials in n8n
 
+> **Pipeline A (Preview) users:** Skip this step — the preview workflow doesn't push to Confluence/Jira directly. You'll use the push script later which reads credentials from `.env`.
+>
+> **Pipeline B and C users:** You need to set up Confluence (and optionally Jira) credentials inside n8n.
+
 Credentials are created **from inside the workflow nodes**, not from a separate settings page.
 
 ### Confluence credential:
@@ -260,8 +265,10 @@ Credentials are created **from inside the workflow nodes**, not from a separate 
 
 ## 6. Publish the Workflow
 
-Click the **"Publish"** button in the top-right corner of the workflow editor. This activates the webhook so it can receive requests.
+Click the **"Publish"** button in the top-right corner of the workflow editor. This turns the workflow on so the webhook can receive requests.
 
+> **Do this for every workflow you imported.** If you imported Pipeline A (Preview) and Pipeline B (Direct Push), publish both.
+>
 > **"Publish" doesn't make anything public.** n8n is running on your machine — the webhook is only reachable at `localhost:10353`. Nobody outside your computer can access it. The button just means "turn this workflow on."
 
 ## 7. Run It
