@@ -198,7 +198,7 @@ You do NOT need a paid API key. GitHub Models API is free with any GitHub accoun
 | Anthropic API | Pay-per-use (~$3-15/MTok) | API key from console.anthropic.com | High volume, best quality |
 | OpenAI API | Pay-per-use (~$2.50-10/MTok) | API key from platform.openai.com | High volume, alternative |
 
-**Recommended starting point:** GitHub Models API (free) with `anthropic/claude-4-opus` or `openai/gpt-4o`. See [docs/GITHUB_MODELS_SETUP.md](docs/GITHUB_MODELS_SETUP.md) for setup.
+**Recommended starting point:** GitHub Models API (free) with `openai/gpt-4.1` or `gpt-4o`. See [docs/GITHUB_MODELS_SETUP.md](docs/GITHUB_MODELS_SETUP.md) for setup.
 
 ## FAQ
 

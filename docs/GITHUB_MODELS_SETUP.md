@@ -24,14 +24,16 @@ Models accessible via GitHub Models API include:
 
 | Model | ID for API | Quality |
 |-------|-----------|---------|
-| Claude Opus 4 | `anthropic/claude-4-opus` | Best, recommended |
+| GPT-5 | `openai/gpt-5` | Best OpenAI |
+| GPT-4.1 | `openai/gpt-4.1` | Great, coding + long context |
+| GPT-4o | `gpt-4o` | Good general purpose |
+| GPT-4o mini | `gpt-4o-mini` | Good, higher rate limits |
+| Claude Opus 4 | `anthropic/claude-4-opus` | Best Claude |
 | Claude Sonnet 4 | `anthropic/claude-4-sonnet` | Great, faster |
-| Claude Haiku 3.5 | `anthropic/claude-3.5-haiku` | Good, fastest |
-| GPT-5 | `openai/gpt-5` | Excellent |
-| GPT-5 mini | `openai/gpt-5-mini` | Good, faster |
-| GPT-4o | `openai/gpt-4o` | Great |
 | Llama 4 Scout | `meta/llama-4-scout` | Good, open-source |
 | DeepSeek R1 | `deepseek/deepseek-r1` | Good, reasoning |
+
+> **Note:** Model IDs are inconsistent — some have a vendor prefix (`openai/gpt-5`), some don't (`gpt-4o`). Always check the [GitHub Models marketplace](https://github.com/marketplace?type=models) for exact IDs.
 
 > Check the full catalog: `GET https://models.github.ai/catalog/models`
 
@@ -87,7 +89,7 @@ Edit `.env`:
 # AI Provider
 AI_PROVIDER=github-models
 GITHUB_TOKEN=github_pat_xxxxx        # Your PAT from step 1
-AI_MODEL=anthropic/claude-4-opus      # Or openai/gpt-4o, anthropic/claude-4-sonnet
+AI_MODEL=openai/gpt-4.1               # Or openai/gpt-5, gpt-4o, anthropic/claude-4-sonnet
 
 # Leave ANTHROPIC_API_KEY and OPENAI_API_KEY empty
 ANTHROPIC_API_KEY=

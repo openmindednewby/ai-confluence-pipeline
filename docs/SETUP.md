@@ -379,7 +379,7 @@ See `custom-prompts/custom-prompts.example.js` for complete examples.
 ### AI response parsing fails
 - Check the "Parse AI Response" node execution data in n8n
 - The AI sometimes wraps JSON in markdown fences — the parser handles this, but edge cases exist
-- Try switching to `anthropic/claude-4-opus` for more reliable structured output
+- Try switching to `openai/gpt-5` or `openai/gpt-4.1` for more reliable structured output
 
 ### Confluence page formatting looks wrong
 - Confluence uses its own "storage format" (XHTML-like)
