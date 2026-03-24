@@ -87,7 +87,7 @@ Edit `.env`:
 # AI Provider
 AI_PROVIDER=github-models
 GITHUB_TOKEN=github_pat_xxxxx        # Your PAT from step 1
-AI_MODEL=openai/gpt-4o               # Or anthropic/claude-sonnet-4.6
+AI_MODEL=anthropic/claude-4-opus      # Or openai/gpt-4o, anthropic/claude-4-sonnet
 
 # Leave ANTHROPIC_API_KEY and OPENAI_API_KEY empty
 ANTHROPIC_API_KEY=
