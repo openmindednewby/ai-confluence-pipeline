@@ -144,19 +144,38 @@ Open http://localhost:10353 and log in with the credentials from `.env` (`N8N_BA
 1. In n8n, go to **Workflows** → **Import from file**
 2. Select the workflow for your AI provider:
    - **GitHub Models (free):** `workflows/github-models-pipeline.json`
+   - **Preview workflow:** `workflows/preview-pipeline.json`
    - **Anthropic API:** `workflows/technical-analysis-pipeline.json`
-3. Configure credentials in n8n:
-   - Go to **Settings** → **Credentials** → **Add Credential**
-   - Create **"Confluence Basic Auth"** (type: HTTP Basic Auth):
-     - User: your Atlassian email
-     - Password: your Confluence API token (from step 1)
-   - Create **"Jira Basic Auth"** (type: HTTP Basic Auth):
-     - User: your Atlassian email
-     - Password: your Jira API token (same token works if same Atlassian instance)
-   - Open the workflow and assign these credentials to the "Create Confluence Page" and "Create Jira Issue" nodes
-4. Activate the workflow (toggle in top-right)
 
-## 5. Test It
+## 5. Set Up Credentials in n8n
+
+Credentials are managed in the **left sidebar** of n8n (not in Settings):
+
+1. Click **Credentials** in the left sidebar (key icon)
+2. Click **"Add Credential"** (top-right)
+3. Search for **"HTTP Basic Auth"** and select it
+4. Create **"Confluence Basic Auth"**:
+   - **User:** your Atlassian email (e.g., `you@company.com`)
+   - **Password:** your Confluence API token (from step 1 — this is NOT your Atlassian password)
+   - Click **Save**
+5. Click **"Add Credential"** again → **"HTTP Basic Auth"**
+6. Create **"Jira Basic Auth"** (skip if not using Jira):
+   - **User:** your Atlassian email (same as above)
+   - **Password:** your Jira API token (same token works if same Atlassian instance)
+   - Click **Save**
+
+Then connect credentials to the workflow:
+
+7. Open your imported workflow
+8. Double-click the **"Create Confluence Page"** node → under **Credential for HTTP Basic Auth**, select **"Confluence Basic Auth"**
+9. Double-click the **"Create Jira Issue"** node → select **"Jira Basic Auth"**
+10. Click **Save** on the workflow
+
+## 6. Activate the Workflow
+
+Toggle the **Active** switch in the top-right corner of the workflow editor. The webhook URL becomes live once activated.
+
+## 7. Test It
 
 ```bash
 # Bash
@@ -166,7 +185,7 @@ Open http://localhost:10353 and log in with the credentials from `.env` (`N8N_BA
 .\scripts\trigger-analysis.ps1 -Description "Add user notification preferences with email and push channels"
 ```
 
-## 6. Set Up Team Profile (Optional)
+## 8. Set Up Team Profile (Optional)
 
 ```bash
 cp team-profiles/example.json team-profiles/my-team.json
@@ -174,7 +193,7 @@ cp team-profiles/example.json team-profiles/my-team.json
 
 Edit `my-team.json` with your tech stack, conventions, Jira project key, and Confluence space. This context gets injected into prompts for more specific output. See [team-profiles/example.json](../team-profiles/example.json) for what each field does.
 
-## 7. Customize
+## 9. Customize
 
 - **Prompts**: Edit `prompts/` to match your team's conventions (used by the current n8n workflow)
 - **Templates**: Browse `templates/` for 13 scenario-specific prompt templates (new-feature, bug-fix, ADR, etc.) — see [CUSTOMIZATION.md](CUSTOMIZATION.md) for details
