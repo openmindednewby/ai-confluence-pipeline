@@ -139,13 +139,94 @@ This downloads the [official n8n Docker image](https://hub.docker.com/r/n8nio/n8
 
 Open http://localhost:10353 and log in with the credentials from `.env` (`N8N_BASIC_AUTH_USER` / `N8N_BASIC_AUTH_PASSWORD`).
 
-## 4. Import the Workflow
+## 4. Choose and Import a Workflow
+
+There are 3 workflows available. Pick the one that fits how you want to work:
+
+### Pipeline A: Preview First (Recommended for getting started)
+
+```
+You describe a feature → AI generates analysis → Saved as local markdown files
+    → You review and edit → You push to Confluence when ready
+```
+
+**File:** `workflows/preview-pipeline.json`
+
+**How it works:**
+1. You run `./scripts/trigger-preview.sh "Add user notifications"`
+2. AI generates a technical analysis
+3. Two files are saved in the `preview/` folder:
+   - `.md` file — human-readable markdown you can review and edit in any editor
+   - `.json` file — raw data used by the push script
+4. When you're happy with it, run `./scripts/push-to-confluence.sh preview/xxx.json`
+5. Optionally add `--jira` to also create Jira tickets
+
+**Best for:** First-time setup, when you want to verify AI output before publishing, when you want to edit the analysis before it goes to Confluence.
+
+**AI provider:** GitHub Models API (free). Uses your `GITHUB_TOKEN` from `.env`.
+
+**Credentials needed in n8n:** None — this workflow only calls the AI and returns results. Confluence/Jira is handled by the push script.
+
+---
+
+### Pipeline B: Direct Push with GitHub Models (Free)
+
+```
+You describe a feature → AI generates analysis → Confluence page created → Jira tickets created
+```
+
+**File:** `workflows/github-models-pipeline.json`
+
+**How it works:**
+1. You run `./scripts/trigger-analysis.sh "Add user notifications"`
+2. AI generates the analysis
+3. A Confluence page is created automatically
+4. Jira tickets are created for each task (unless you pass `--no-jira`)
+5. You get back the Confluence URL and Jira ticket keys
+
+**Best for:** When you trust the AI output and want everything created in one step. Fast workflow once you've validated the quality with Pipeline A a few times.
+
+**AI provider:** GitHub Models API (free). Uses your `GITHUB_TOKEN` from `.env`.
+
+**Credentials needed in n8n:** Confluence Basic Auth + Jira Basic Auth (see step 5 below).
+
+---
+
+### Pipeline C: Direct Push with Anthropic API (Paid, highest quality)
+
+```
+Same as Pipeline B, but uses Claude directly via Anthropic API
+```
+
+**File:** `workflows/technical-analysis-pipeline.json`
+
+**How it works:** Same as Pipeline B — one-step generation + Confluence + Jira.
+
+**Best for:** When you want the best possible AI output quality and are willing to pay per use (~$0.50-2 per analysis).
+
+**AI provider:** Anthropic API (paid). Uses your `ANTHROPIC_API_KEY` from `.env`.
+
+**Credentials needed in n8n:** Confluence Basic Auth + Jira Basic Auth (see step 5 below).
+
+---
+
+### Which one should I pick?
+
+| Situation | Use |
+|-----------|-----|
+| Just getting started, want to try it out | **Pipeline A** (Preview) |
+| Validated the output, want to automate | **Pipeline B** (GitHub Models) |
+| Need best quality, have API budget | **Pipeline C** (Anthropic) |
+| Want to review before publishing | **Pipeline A** (Preview) |
+| High volume (50+ analyses/day) | **Pipeline C** (Anthropic — no rate limits) |
+
+> **You can import multiple workflows** into n8n and use them side by side. Each has a different webhook URL (`/webhook/preview` vs `/webhook/analyze`).
+
+### Import
 
 1. In n8n, go to **Workflows** → **Import from file**
-2. Select the workflow for your AI provider:
-   - **GitHub Models (free):** `workflows/github-models-pipeline.json`
-   - **Preview workflow:** `workflows/preview-pipeline.json`
-   - **Anthropic API:** `workflows/technical-analysis-pipeline.json`
+2. Select the workflow JSON file for the pipeline you chose
+3. If you want multiple pipelines, repeat for each one
 
 ## 5. Set Up Credentials in n8n
 
