@@ -16,7 +16,7 @@ param(
     [string]$Context = ""
 )
 
-$WebhookUrl = if ($env:WEBHOOK_URL) { $env:WEBHOOK_URL } else { "http://localhost:5678/webhook/analyze" }
+$WebhookUrl = if ($env:WEBHOOK_URL) { $env:WEBHOOK_URL } else { "http://localhost:10353/webhook/analyze" }
 
 $body = @{
     featureDescription = $Description

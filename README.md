@@ -36,7 +36,7 @@ cp .env.example .env
 docker compose up -d
 
 # 4. Import workflow
-# Open http://localhost:5678 → Import → workflows/technical-analysis-pipeline.json
+# Open http://localhost:10353 → Import → workflows/technical-analysis-pipeline.json
 
 # 5. Run it
 ./scripts/trigger-analysis.sh "Add user notification preferences with email and push channels"
@@ -124,7 +124,7 @@ The prompts in `prompts/` are what the current n8n workflow uses. The templates 
 .\scripts\trigger-analysis.ps1 -Description "Add feature X" -Context "We use PostgreSQL"
 
 # Direct API call
-curl -X POST http://localhost:5678/webhook/analyze \
+curl -X POST http://localhost:10353/webhook/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "featureDescription": "Add feature X",

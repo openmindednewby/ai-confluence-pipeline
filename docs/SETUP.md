@@ -40,7 +40,7 @@ Edit `.env` with your values:
 docker compose up -d
 ```
 
-Open http://localhost:5678 and log in with the credentials from `.env`.
+Open http://localhost:10353 and log in with the credentials from `.env`.
 
 ## 4. Import the Workflow
 

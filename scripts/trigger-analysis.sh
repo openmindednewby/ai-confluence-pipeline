@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-WEBHOOK_URL="${WEBHOOK_URL:-http://localhost:5678/webhook/analyze}"
+WEBHOOK_URL="${WEBHOOK_URL:-http://localhost:10353/webhook/analyze}"
 FEATURE_DESCRIPTION="$1"
 CREATE_JIRA=true
 ADDITIONAL_CONTEXT=""
