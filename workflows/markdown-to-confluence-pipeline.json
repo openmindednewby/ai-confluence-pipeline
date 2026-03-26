@@ -1,0 +1,105 @@
+{
+  "name": "Markdown → Confluence Page",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "markdown-to-confluence",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "k1000000-0000-0000-0000-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "markdown-to-confluence"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "page-md", "name": "pageMarkdown", "value": "={{ $json.body.pageMarkdown || '' }}", "type": "string" },
+            { "id": "section-mds", "name": "sectionMarkdowns", "value": "={{ JSON.stringify($json.body.sectionMarkdowns || []) }}", "type": "string" },
+            { "id": "title-override", "name": "titleOverride", "value": "={{ $json.body.title || '' }}", "type": "string" },
+            { "id": "labels", "name": "labels", "value": "={{ $json.body.labels || '' }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "k1000000-0000-0000-0000-000000000002",
+      "name": "Set Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pageMarkdown = $input.first().json.pageMarkdown || '';\nconst sectionMarkdowns = JSON.parse($input.first().json.sectionMarkdowns || '[]');\nconst titleOverride = $input.first().json.titleOverride || '';\nconst labelsStr = $input.first().json.labels || '';\n\n// Combine all markdown\nlet combinedMd = pageMarkdown;\nfor (const section of sectionMarkdowns) {\n  if (section.trim()) {\n    combinedMd += '\\n\\n---\\n\\n' + section;\n  }\n}\n\n// Determine title\nlet title = titleOverride;\nif (!title) {\n  const titleMatch = combinedMd.match(/^# (.+)$/m);\n  title = titleMatch ? titleMatch[1] : 'Documentation';\n}\n\n// Build labels\nconst labels = ['ai-generated'];\nif (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\nconst labelsJson = labels.map(l => ({ prefix: 'global', name: l }));\n\n// Convert markdown to Confluence storage format HTML\nfunction mdToConfluenceHtml(md) {\n  const lines = md.split('\\n');\n  let html = '';\n  let inCodeBlock = false, codeContent = '', codeLang = 'text', inList = false;\n\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i];\n\n    if (line.startsWith('```') && !inCodeBlock) {\n      if (inList) { html += '</ul>'; inList = false; }\n      inCodeBlock = true;\n      codeLang = line.slice(3).trim() || 'text';\n      codeContent = '';\n      continue;\n    }\n    if (line.startsWith('```') && inCodeBlock) {\n      inCodeBlock = false;\n      html += '<ac:structured-macro ac:name=\"code\"><ac:parameter ac:name=\"language\">' + codeLang + '</ac:parameter><ac:plain-text-body><![CDATA[' + codeContent.trim() + ']]></ac:plain-text-body></ac:structured-macro>';\n      continue;\n    }\n    if (inCodeBlock) { codeContent += line + '\\n'; continue; }\n\n    // Tables\n    if (line.match(/^\\|.+\\|$/) && i + 1 < lines.length && lines[i+1].match(/^\\|[-| :]+\\|$/)) {\n      if (inList) { html += '</ul>'; inList = false; }\n      const headers = line.split('|').filter(c => c.trim()).map(c => '<th>' + c.trim() + '</th>').join('');\n      html += '<table><thead><tr>' + headers + '</tr></thead><tbody>';\n      i++;\n      while (i + 1 < lines.length && lines[i+1].match(/^\\|.+\\|$/)) {\n        i++;\n        const cells = lines[i].split('|').filter(c => c.trim()).map(c => '<td>' + c.trim() + '</td>').join('');\n        html += '<tr>' + cells + '</tr>';\n      }\n      html += '</tbody></table>';\n      continue;\n    }\n\n    if (line.startsWith('#### ')) { if (inList) { html += '</ul>'; inList = false; } html += '<h4>' + line.slice(5) + '</h4>'; continue; }\n    if (line.startsWith('### '))  { if (inList) { html += '</ul>'; inList = false; } html += '<h3>' + line.slice(4) + '</h3>'; continue; }\n    if (line.startsWith('## '))   { if (inList) { html += '</ul>'; inList = false; } html += '<h2>' + line.slice(3) + '</h2>'; continue; }\n    if (line.startsWith('# '))    { if (inList) { html += '</ul>'; inList = false; } html += '<h1>' + line.slice(2) + '</h1>'; continue; }\n    if (line.match(/^---+$/))     { if (inList) { html += '</ul>'; inList = false; } html += '<hr/>'; continue; }\n    if (line.startsWith('> '))    { if (inList) { html += '</ul>'; inList = false; } html += '<blockquote><p>' + line.slice(2) + '</p></blockquote>'; continue; }\n\n    if (line.match(/^[-*] /)) {\n      if (!inList) { html += '<ul>'; inList = true; }\n      let item = line.replace(/^[-*] /, '');\n      item = item.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');\n      item = item.replace(/\\*(.+?)\\*/g, '<em>$1</em>');\n      item = item.replace(/`([^`]+)`/g, '<code>$1</code>');\n      html += '<li>' + item + '</li>';\n      continue;\n    }\n\n    if (line.trim() === '') { if (inList) { html += '</ul>'; inList = false; } continue; }\n\n    if (inList) { html += '</ul>'; inList = false; }\n    let p = line;\n    p = p.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');\n    p = p.replace(/\\*(.+?)\\*/g, '<em>$1</em>');\n    p = p.replace(/`([^`]+)`/g, '<code>$1</code>');\n    p = p.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href=\"$2\">$1</a>');\n    html += '<p>' + p + '</p>';\n  }\n  if (inList) html += '</ul>';\n  return html;\n}\n\nlet html = mdToConfluenceHtml(combinedMd);\nconst date = new Date().toISOString().split('T')[0];\nhtml += '<hr/><p><em>Published from markdown by <a href=\"https://github.com/openmindednewby/ai-confluence-pipeline\">ai-confluence-pipeline</a> on ' + date + '</em></p>';\n\n// Build Confluence API body\nconst confBody = {\n  type: 'page',\n  title: title,\n  space: { key: $env.CONFLUENCE_SPACE_KEY },\n  body: { storage: { value: html, representation: 'storage' } },\n  metadata: { labels: labelsJson }\n};\n\nconst parentId = $env.CONFLUENCE_PARENT_PAGE_ID;\nif (parentId) confBody.ancestors = [{ id: parentId }];\n\nreturn [{ json: { confBody, title } }];"
+      },
+      "id": "k1000000-0000-0000-0000-000000000003",
+      "name": "Convert Markdown to Confluence HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CONFLUENCE_BASE_URL }}/wiki/rest/api/content",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.confBody) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "k1000000-0000-0000-0000-000000000004",
+      "name": "Create Confluence Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "confluence-auth",
+          "name": "Confluence Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst title = $('Convert Markdown to Confluence HTML').first().json.title;\nconst url = (response._links?.base || '') + (response._links?.webui || '');\n\nreturn [{ json: {\n  success: true,\n  confluencePage: {\n    id: response.id,\n    title: title,\n    url: url\n  }\n} }];"
+      },
+      "id": "k1000000-0000-0000-0000-000000000005",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "k1000000-0000-0000-0000-000000000006",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Set Variables", "type": "main", "index": 0 }]] },
+    "Set Variables": { "main": [[{ "node": "Convert Markdown to Confluence HTML", "type": "main", "index": 0 }]] },
+    "Convert Markdown to Confluence HTML": { "main": [[{ "node": "Create Confluence Page", "type": "main", "index": 0 }]] },
+    "Create Confluence Page": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "ai-pipeline" }, { "name": "confluence" }, { "name": "markdown" }]
+}

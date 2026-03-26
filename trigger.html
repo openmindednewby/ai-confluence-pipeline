@@ -66,21 +66,27 @@
 <body>
   <div class="container">
     <h1>AI Confluence Pipeline</h1>
-    <p class="subtitle">Generate technical analysis, push to Confluence, create Jira tickets <span class="pill pill-local">LOCAL</span></p>
+    <p class="subtitle">Generate AI analysis, push markdown to Confluence, create Jira tickets <span class="pill pill-local">LOCAL</span></p>
 
     <div class="row">
       <div class="form-group">
         <label for="pipeline">Pipeline</label>
-        <select id="pipeline">
-          <option value="preview">Preview — save as markdown, push later</option>
-          <option value="preview-cli">Preview via Claude CLI — no API keys needed</option>
-          <option value="preview-gh">Preview via gh models CLI (GitHub Copilot) — no API keys needed</option>
-          <option value="preview-iterative">Iterative Preview — AI generates, critiques, you refine in a loop</option>
-          <option value="analyze">Direct Push — Confluence + Jira</option>
-          <option value="analyze-no-jira">Direct Push — Confluence only</option>
+        <select id="pipeline" onchange="onPipelineChange()">
+          <optgroup label="AI Analysis">
+            <option value="preview">Preview — save as markdown, push later</option>
+            <option value="preview-iterative">Iterative Preview — AI generates, critiques, you refine</option>
+            <option value="preview-cli">Preview via Claude CLI</option>
+            <option value="preview-gh">Preview via gh models CLI (GitHub Copilot)</option>
+            <option value="analyze">Direct Push — Confluence + Jira</option>
+            <option value="analyze-no-jira">Direct Push — Confluence only</option>
+          </optgroup>
+          <optgroup label="Markdown → Publish (no AI)">
+            <option value="markdown-to-jira">Markdown → Jira Epic + Stories</option>
+            <option value="markdown-to-confluence">Markdown → Confluence Page</option>
+          </optgroup>
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="template-group">
         <label for="template">Template</label>
         <select id="template" onchange="onTemplateChange()">
           <optgroup label="General (default)">
@@ -115,16 +121,55 @@
         </select>
       </div>
     </div>
-    <p class="template-desc" id="template-desc">Default analysis — architecture, APIs, database, edge cases, tasks</p>
 
-    <div class="form-group">
-      <label for="description">Description <span class="label-hint">— what you want analyzed</span></label>
-      <textarea id="description" placeholder="e.g., Add user notification preferences with email, push, and in-app channels. Users should be able to configure which events trigger notifications and through which channels."></textarea>
+    <div id="ai-fields">
+      <p class="template-desc" id="template-desc">Default analysis — architecture, APIs, database, edge cases, tasks</p>
+
+      <div class="form-group">
+        <label for="description">Description <span class="label-hint">— what you want analyzed</span></label>
+        <textarea id="description" placeholder="e.g., Add user notification preferences with email, push, and in-app channels. Users should be able to configure which events trigger notifications and through which channels."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="context">Additional Context <span class="label-hint">(optional — tech stack, constraints, etc.)</span></label>
+        <textarea id="context" rows="3" placeholder="e.g., We use PostgreSQL, React Native frontend, .NET backend with FastEndpoints. Push notifications via Firebase."></textarea>
+      </div>
     </div>
 
-    <div class="form-group">
-      <label for="context">Additional Context <span class="label-hint">(optional — tech stack, constraints, etc.)</span></label>
-      <textarea id="context" rows="3" placeholder="e.g., We use PostgreSQL, React Native frontend, .NET backend with FastEndpoints. Push notifications via Firebase."></textarea>
+    <div id="jira-panel" style="display:none;">
+      <div class="form-group">
+        <label>Epic Markdown <span class="label-hint">— title, description, acceptance criteria</span></label>
+        <textarea id="epic-markdown" rows="8" placeholder="# Epic Title&#10;&#10;Description of the epic...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;High&#10;&#10;## Labels&#10;notifications, backend"></textarea>
+      </div>
+      <div id="task-list">
+        <div class="form-group task-entry">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="margin:0;">Task 1 <span class="label-hint">— becomes a Story linked to the epic</span></label>
+            <button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button>
+          </div>
+          <textarea class="task-markdown" rows="6" placeholder="# Task Title&#10;&#10;Task description...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;Medium&#10;&#10;## Estimate&#10;M&#10;&#10;## Component&#10;backend"></textarea>
+        </div>
+      </div>
+      <button class="btn-secondary" onclick="addTask()" style="margin-top:0.5rem; font-size:0.8rem;">+ Add Task</button>
+    </div>
+
+    <div id="confluence-panel" style="display:none;">
+      <div class="form-group">
+        <label>Page Markdown <span class="label-hint">— main page content</span></label>
+        <textarea id="page-markdown" rows="8" placeholder="# Page Title&#10;&#10;Introduction content...&#10;&#10;## Section Heading&#10;&#10;Section content with **bold**, *italic*, `code`, tables, lists..."></textarea>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Title Override <span class="label-hint">(optional — uses # heading if blank)</span></label>
+          <input id="confluence-title" placeholder="Leave blank to use heading from markdown" />
+        </div>
+        <div class="form-group">
+          <label>Labels <span class="label-hint">(comma-separated, optional)</span></label>
+          <input id="confluence-labels" placeholder="e.g., docs, api, team-platform" />
+        </div>
+      </div>
+      <div id="section-list"></div>
+      <button class="btn-secondary" onclick="addSection()" style="margin-top:0.5rem; font-size:0.8rem;">+ Add Section</button>
     </div>
 
     <div class="actions">
@@ -174,6 +219,175 @@
     let iterativeMode = false;
     let currentIteration = 0;
     let currentAnalysis = null;
+    let taskCount = 1;
+    let sectionCount = 0;
+
+    // --- Pipeline show/hide ---
+    function onPipelineChange() {
+      const pipeline = document.getElementById('pipeline').value;
+      const isJira = pipeline === 'markdown-to-jira';
+      const isConfluence = pipeline === 'markdown-to-confluence';
+      const isAI = !isJira && !isConfluence;
+
+      // AI-specific fields
+      document.getElementById('ai-fields').style.display = isAI ? '' : 'none';
+      document.getElementById('template-group').style.display = isAI ? '' : 'none';
+
+      // Markdown panels
+      document.getElementById('jira-panel').style.display = isJira ? '' : 'none';
+      document.getElementById('confluence-panel').style.display = isConfluence ? '' : 'none';
+
+      // Button text
+      const btn = document.getElementById('submit');
+      if (isJira) btn.textContent = 'Create Jira Epic + Stories';
+      else if (isConfluence) btn.textContent = 'Publish to Confluence';
+      else btn.textContent = 'Generate Analysis';
+    }
+
+    // --- Dynamic task entries ---
+    function addTask() {
+      taskCount++;
+      const div = document.createElement('div');
+      div.className = 'form-group task-entry';
+      div.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+        '<label style="margin:0;">Task ' + taskCount + ' <span class="label-hint">— becomes a Story linked to the epic</span></label>' +
+        '<button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div>' +
+        '<textarea class="task-markdown" rows="6" placeholder="# Task Title\n\nTask description...\n\n## Acceptance Criteria\n- ...\n\n## Estimate\nM\n\n## Component\nbackend"></textarea>';
+      document.getElementById('task-list').appendChild(div);
+    }
+
+    function removeTask(btn) {
+      btn.closest('.task-entry').remove();
+      document.querySelectorAll('#task-list .task-entry').forEach((el, i) => {
+        const lbl = el.querySelector('label');
+        lbl.innerHTML = 'Task ' + (i + 1) + ' <span class="label-hint">— becomes a Story linked to the epic</span>';
+      });
+      taskCount = document.querySelectorAll('#task-list .task-entry').length;
+    }
+
+    // --- Dynamic section entries ---
+    function addSection() {
+      sectionCount++;
+      const div = document.createElement('div');
+      div.className = 'form-group section-entry';
+      div.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+        '<label style="margin:0;">Section ' + sectionCount + ' <span class="label-hint">— appended to the page</span></label>' +
+        '<button class="btn-secondary" onclick="removeSection(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div>' +
+        '<textarea class="section-markdown" rows="6" placeholder="# Section Title\n\nSection content..."></textarea>';
+      document.getElementById('section-list').appendChild(div);
+    }
+
+    function removeSection(btn) {
+      btn.closest('.section-entry').remove();
+      document.querySelectorAll('#section-list .section-entry').forEach((el, i) => {
+        const lbl = el.querySelector('label');
+        lbl.innerHTML = 'Section ' + (i + 1) + ' <span class="label-hint">— appended to the page</span>';
+      });
+      sectionCount = document.querySelectorAll('#section-list .section-entry').length;
+    }
+
+    // --- Jira pipeline ---
+    async function runJiraPipeline() {
+      const epicMarkdown = document.getElementById('epic-markdown').value.trim();
+      if (!epicMarkdown) {
+        document.getElementById('status').className = 'status error';
+        document.getElementById('status').textContent = 'Please enter the epic markdown.';
+        return;
+      }
+      const taskMarkdowns = Array.from(document.querySelectorAll('.task-markdown'))
+        .map(ta => ta.value.trim()).filter(Boolean);
+
+      document.getElementById('submit').disabled = true;
+      document.getElementById('status').className = 'status loading';
+      document.getElementById('status').textContent = 'Creating Jira Epic + ' + taskMarkdowns.length + ' Stories...';
+      document.getElementById('result').style.display = 'none';
+
+      try {
+        const response = await fetch('http://localhost:' + PORT + '/webhook/markdown-to-jira', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epicMarkdown, taskMarkdowns })
+        });
+        let data = await response.json();
+        if (Array.isArray(data)) data = data[0];
+        if (data?.json) data = data.json;
+
+        if (data.success) {
+          document.getElementById('status').className = 'status success';
+          document.getElementById('status').textContent = 'Epic ' + data.epic.key + ' created with ' + data.taskCount + ' linked stories.';
+
+          const links = document.getElementById('result-links');
+          links.innerHTML = '<a href="' + data.epic.url + '" target="_blank">' + data.epic.key + ' (Epic)</a>';
+          for (const task of data.tasks || []) {
+            links.innerHTML += ' <a href="' + task.url + '" target="_blank">' + task.key + '</a>';
+          }
+
+          document.getElementById('download-actions').style.display = 'none';
+          document.getElementById('view-toggle').style.display = 'none';
+          document.getElementById('result-preview').style.display = 'none';
+          document.getElementById('iterative-panel').style.display = 'none';
+          document.getElementById('result-content').style.display = 'block';
+          document.getElementById('result-content').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('result').style.display = 'block';
+        } else {
+          throw new Error(JSON.stringify(data));
+        }
+      } catch (e) {
+        document.getElementById('status').className = 'status error';
+        document.getElementById('status').textContent = e.message.includes('fetch') ? 'Cannot reach n8n at localhost:' + PORT + '. Is it running?' : 'Error: ' + e.message;
+      }
+      document.getElementById('submit').disabled = false;
+    }
+
+    // --- Confluence pipeline ---
+    async function runConfluencePipeline() {
+      const pageMarkdown = document.getElementById('page-markdown').value.trim();
+      if (!pageMarkdown) {
+        document.getElementById('status').className = 'status error';
+        document.getElementById('status').textContent = 'Please enter the page markdown.';
+        return;
+      }
+      const sectionMarkdowns = Array.from(document.querySelectorAll('.section-markdown'))
+        .map(ta => ta.value.trim()).filter(Boolean);
+      const title = document.getElementById('confluence-title').value.trim();
+      const labels = document.getElementById('confluence-labels').value.trim();
+
+      document.getElementById('submit').disabled = true;
+      document.getElementById('status').className = 'status loading';
+      document.getElementById('status').textContent = 'Publishing to Confluence...';
+      document.getElementById('result').style.display = 'none';
+
+      try {
+        const response = await fetch('http://localhost:' + PORT + '/webhook/markdown-to-confluence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageMarkdown, sectionMarkdowns, title, labels })
+        });
+        let data = await response.json();
+        if (Array.isArray(data)) data = data[0];
+        if (data?.json) data = data.json;
+
+        if (data.success) {
+          document.getElementById('status').className = 'status success';
+          document.getElementById('status').textContent = 'Confluence page created: ' + data.confluencePage.title;
+
+          document.getElementById('result-links').innerHTML = '<a href="' + data.confluencePage.url + '" target="_blank">Open Confluence Page</a>';
+          document.getElementById('download-actions').style.display = 'none';
+          document.getElementById('view-toggle').style.display = 'none';
+          document.getElementById('result-preview').style.display = 'none';
+          document.getElementById('iterative-panel').style.display = 'none';
+          document.getElementById('result-content').style.display = 'block';
+          document.getElementById('result-content').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('result').style.display = 'block';
+        } else {
+          throw new Error(JSON.stringify(data));
+        }
+      } catch (e) {
+        document.getElementById('status').className = 'status error';
+        document.getElementById('status').textContent = e.message.includes('fetch') ? 'Cannot reach n8n at localhost:' + PORT + '. Is it running?' : 'Error: ' + e.message;
+      }
+      document.getElementById('submit').disabled = false;
+    }
 
     // Load custom prompts into dropdown on page load
     (function loadCustomPrompts() {
@@ -235,6 +449,10 @@
 
     async function runPipeline() {
       const pipeline = document.getElementById('pipeline').value;
+
+      if (pipeline === 'markdown-to-jira') return runJiraPipeline();
+      if (pipeline === 'markdown-to-confluence') return runConfluencePipeline();
+
       const template = document.getElementById('template').value;
       const description = document.getElementById('description').value.trim();
       const context = document.getElementById('context').value.trim();
@@ -534,8 +752,16 @@
       document.getElementById('download-actions').style.display = 'none';
       document.getElementById('view-toggle').style.display = 'none';
       document.getElementById('result-preview').innerHTML = '';
+      document.getElementById('result-links').innerHTML = '';
       document.getElementById('iterative-panel').style.display = 'none';
       document.getElementById('feedback').value = '';
+      document.getElementById('epic-markdown').value = '';
+      document.querySelectorAll('.task-markdown').forEach(ta => ta.value = '');
+      document.getElementById('page-markdown').value = '';
+      document.getElementById('confluence-title').value = '';
+      document.getElementById('confluence-labels').value = '';
+      document.querySelectorAll('.section-entry').forEach(el => el.remove());
+      sectionCount = 0;
       lastResult = null;
       iterativeMode = false;
       currentIteration = 0;
