@@ -42,7 +42,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.CONFLUENCE_BASE_URL }}/wiki/rest/api/content/={{ $json.pageId }}?expand=version",
+        "url": "={{ $env.CONFLUENCE_BASE_URL }}/wiki/rest/api/content/{{ $json.pageId }}?expand=version",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "options": { "timeout": 15000 }
