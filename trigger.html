@@ -61,6 +61,14 @@
     .rendered-markdown td { padding: 0.5rem 0.75rem; border: 1px solid #334155; }
     .rendered-markdown tr:hover td { background: #0f172a33; }
     .rendered-markdown a { color: #818cf8; }
+    .result-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+    .result-card a { color: #818cf8; text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    .result-card a:hover { text-decoration: underline; }
+    .result-card .card-meta { color: #94a3b8; font-size: 0.8rem; margin-top: 0.25rem; }
+    .result-card .card-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
+    .badge-created { background: #14532d; color: #86efac; }
+    .badge-updated { background: #1e3a5f; color: #93c5fd; }
+    .result-cards { margin-top: 0.75rem; }
   </style>
 </head>
 <body>
@@ -377,17 +385,28 @@
           document.getElementById('status').textContent = 'Epic ' + data.epic.key + ' ' + epicAction + ' with ' + data.taskCount + ' linked stories.';
 
           const links = document.getElementById('result-links');
-          links.innerHTML = '<a href="' + data.epic.url + '" target="_blank">' + data.epic.key + ' (Epic)</a>';
+          let cardsHtml = '<div class="result-cards">';
+          cardsHtml += '<div class="result-card">' +
+            '<a href="' + data.epic.url + '" target="_blank">' + data.epic.key + ' — ' + (data.epic.title || 'Epic') + '</a>' +
+            '<span class="card-badge ' + (epicAction === 'updated' ? 'badge-updated' : 'badge-created') + '">' + epicAction + '</span>' +
+            '<div class="card-meta">Epic' + (data.taskCount > 0 ? ' · ' + data.taskCount + ' stories linked' : '') + '</div>' +
+            '</div>';
           for (const task of data.tasks || []) {
-            links.innerHTML += ' <a href="' + task.url + '" target="_blank">' + task.key + '</a>';
+            const taskAction = task.action || 'created';
+            cardsHtml += '<div class="result-card" style="margin-left:1.5rem;">' +
+              '<a href="' + task.url + '" target="_blank">' + task.key + ' — ' + (task.title || 'Story') + '</a>' +
+              '<span class="card-badge ' + (taskAction === 'updated' ? 'badge-updated' : 'badge-created') + '">' + taskAction + '</span>' +
+              '<div class="card-meta">Story · parent: ' + data.epic.key + '</div>' +
+              '</div>';
           }
+          cardsHtml += '</div>';
+          links.innerHTML = cardsHtml;
 
           document.getElementById('download-actions').style.display = 'none';
           document.getElementById('view-toggle').style.display = 'none';
           document.getElementById('result-preview').style.display = 'none';
           document.getElementById('iterative-panel').style.display = 'none';
-          document.getElementById('result-content').style.display = 'block';
-          document.getElementById('result-content').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('result-content').style.display = 'none';
           document.getElementById('result').style.display = 'block';
         } else {
           throw new Error(JSON.stringify(data));
@@ -434,13 +453,19 @@
           const pageAction = data.confluencePage.action || 'created';
           document.getElementById('status').textContent = 'Confluence page ' + pageAction + ': ' + data.confluencePage.title;
 
-          document.getElementById('result-links').innerHTML = '<a href="' + data.confluencePage.url + '" target="_blank">Open Confluence Page</a>';
+          const pageUrl = data.confluencePage.url;
+          const pageTitle = data.confluencePage.title || 'Page';
+          document.getElementById('result-links').innerHTML = '<div class="result-cards">' +
+            '<div class="result-card">' +
+            '<a href="' + pageUrl + '" target="_blank">' + pageTitle + '</a>' +
+            '<span class="card-badge ' + (pageAction === 'updated' ? 'badge-updated' : 'badge-created') + '">' + pageAction + '</span>' +
+            '<div class="card-meta">Confluence page' + (data.confluencePage.id ? ' · ID: ' + data.confluencePage.id : '') + '</div>' +
+            '</div></div>';
           document.getElementById('download-actions').style.display = 'none';
           document.getElementById('view-toggle').style.display = 'none';
           document.getElementById('result-preview').style.display = 'none';
           document.getElementById('iterative-panel').style.display = 'none';
-          document.getElementById('result-content').style.display = 'block';
-          document.getElementById('result-content').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('result-content').style.display = 'none';
           document.getElementById('result').style.display = 'block';
         } else {
           throw new Error(JSON.stringify(data));
