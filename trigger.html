@@ -160,14 +160,14 @@
       <div class="row">
         <div class="form-group">
           <label>Default Assignee <span class="label-hint">(Jira Account ID — applies to all)</span></label>
-          <input id="jira-assignee" placeholder="e.g., 5a1234bc56789d0e12f34567" />
+          <input id="jira-assignee" placeholder="Account ID, profile URL, or email" />
         </div>
         <div class="form-group">
-          <label>Reporter / Owner <span class="label-hint">(Jira Account ID)</span></label>
-          <input id="jira-reporter" placeholder="e.g., 5a1234bc56789d0e12f34567" />
+          <label>Reporter / Owner <span class="label-hint">(optional)</span></label>
+          <input id="jira-reporter" placeholder="Account ID, profile URL, or email" />
         </div>
       </div>
-      <p style="color:#64748b; font-size:0.75rem; margin:-0.5rem 0 0.75rem 0;">Find Account IDs: open a user's Jira profile — the ID is in the URL after <code>/people/</code>. Emails are not accepted by the Jira API.</p>
+      <p style="color:#64748b; font-size:0.75rem; margin:-0.5rem 0 0.75rem 0;">Accepts: Account ID, Atlassian profile URL (auto-extracts ID), or email (auto-resolved via Jira API).</p>
       <div class="form-group">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <label style="margin:0;">Epic Markdown <span class="label-hint">— title, description, acceptance criteria</span></label>
@@ -179,7 +179,7 @@
         <div class="form-group task-entry">
           <div class="row" style="margin-bottom:0.35rem;">
             <input class="task-key" placeholder="Existing task key (optional, e.g., PROJ-456)" style="flex:1;" />
-            <input class="task-assignee" placeholder="Assignee Account ID (optional — overrides default)" style="flex:1;" />
+            <input class="task-assignee" placeholder="Assignee (optional — Account ID, URL, or email)" style="flex:1;" />
           </div>
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <label style="margin:0;">Task 1 <span class="label-hint">— becomes a Story linked to the epic</span></label>
@@ -327,7 +327,7 @@
       div.className = 'form-group task-entry';
       div.innerHTML = '<div class="row" style="margin-bottom:0.35rem;">' +
         '<input class="task-key" placeholder="Existing task key (optional, e.g., PROJ-456)" style="flex:1;" />' +
-        '<input class="task-assignee" placeholder="Assignee Account ID (optional — overrides default)" style="flex:1;" /></div>' +
+        '<input class="task-assignee" placeholder="Assignee (optional — Account ID, URL, or email)" style="flex:1;" /></div>' +
         '<div style="display:flex; justify-content:space-between; align-items:center;">' +
         '<label style="margin:0;">Task ' + taskCount + ' <span class="label-hint">— becomes a Story linked to the epic</span></label>' +
         '<div><button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button> ' +
