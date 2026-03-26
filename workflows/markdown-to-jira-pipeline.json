@@ -1,5 +1,5 @@
 {
-  "name": "Markdown → Jira Epic + Stories",
+  "name": "Markdown → Jira Epic + Stories (Create or Update)",
   "nodes": [
     {
       "parameters": {
@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse markdown into structured fields\nfunction parseMarkdown(md) {\n  const lines = md.split('\\n');\n  const titleLine = lines.find(l => l.startsWith('# '));\n  const title = titleLine ? titleLine.replace(/^# /, '') : 'Untitled';\n\n  const titleIdx = lines.indexOf(titleLine);\n  const descLines = [];\n  for (let i = (titleIdx >= 0 ? titleIdx + 1 : 0); i < lines.length; i++) {\n    if (lines[i].startsWith('## ')) break;\n    descLines.push(lines[i]);\n  }\n  const description = descLines.join(' ').replace(/\\s+/g, ' ').trim();\n\n  function getSection(heading) {\n    const start = lines.findIndex(l => l.startsWith('## ' + heading));\n    if (start === -1) return [];\n    const out = [];\n    for (let i = start + 1; i < lines.length; i++) {\n      if (lines[i].startsWith('## ')) break;\n      if (lines[i].trim()) out.push(lines[i]);\n    }\n    return out;\n  }\n\n  function getField(heading) {\n    const s = getSection(heading);\n    return s.length ? s[0].trim() : '';\n  }\n\n  const criteria = getSection('Acceptance Criteria').filter(l => l.startsWith('- ')).map(l => l.replace(/^- /, ''));\n  const priority = getField('Priority') || ($env.JIRA_DEFAULT_PRIORITY || 'Medium');\n  const estimate = getField('Estimate');\n  const component = getField('Component');\n  const labelsStr = getField('Labels');\n  const labels = ['ai-generated'];\n  if (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\n  if (component) labels.push(component);\n\n  return { title, description, criteria, priority, estimate, component, labels };\n}\n\n// Build Jira ADF issue body\nfunction buildJiraBody(parsed, issueType, parentKey) {\n  const content = [];\n  if (parsed.description) {\n    content.push({ type: 'paragraph', content: [{ type: 'text', text: parsed.description }] });\n  }\n  if (parsed.criteria.length > 0) {\n    content.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Acceptance Criteria' }] });\n    content.push({ type: 'bulletList', content: parsed.criteria.map(c => ({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: c }] }] })) });\n  }\n  const fields = {\n    project: { key: $env.JIRA_PROJECT_KEY },\n    summary: parsed.title,\n    description: { type: 'doc', version: 1, content },\n    issuetype: { name: issueType },\n    priority: { name: parsed.priority },\n    labels: parsed.labels\n  };\n  if (parentKey) fields.parent = { key: parentKey };\n  return { fields };\n}\n\nconst body = $input.first().json.body;\nconst epicMarkdown = body.epicMarkdown || '';\nconst taskMarkdowns = body.taskMarkdowns || [];\n\nconst epicParsed = parseMarkdown(epicMarkdown);\nconst epicIssueType = $env.JIRA_EPIC_ISSUE_TYPE || 'Epic';\nconst epicBody = buildJiraBody(epicParsed, epicIssueType);\n\nreturn [{ json: { epicBody, epicTitle: epicParsed.title, taskMarkdowns } }];"
+        "jsCode": "function parseMarkdown(md) {\n  const lines = md.split('\\n');\n  const titleLine = lines.find(l => l.startsWith('# '));\n  const title = titleLine ? titleLine.replace(/^# /, '') : 'Untitled';\n  const titleIdx = lines.indexOf(titleLine);\n  const descLines = [];\n  for (let i = (titleIdx >= 0 ? titleIdx + 1 : 0); i < lines.length; i++) {\n    if (lines[i].startsWith('## ')) break;\n    descLines.push(lines[i]);\n  }\n  const description = descLines.join(' ').replace(/\\s+/g, ' ').trim();\n  function getSection(heading) {\n    const start = lines.findIndex(l => l.startsWith('## ' + heading));\n    if (start === -1) return [];\n    const out = [];\n    for (let i = start + 1; i < lines.length; i++) {\n      if (lines[i].startsWith('## ')) break;\n      if (lines[i].trim()) out.push(lines[i]);\n    }\n    return out;\n  }\n  function getField(heading) { const s = getSection(heading); return s.length ? s[0].trim() : ''; }\n  const criteria = getSection('Acceptance Criteria').filter(l => l.startsWith('- ')).map(l => l.replace(/^- /, ''));\n  const priority = getField('Priority') || ($env.JIRA_DEFAULT_PRIORITY || 'Medium');\n  const estimate = getField('Estimate');\n  const component = getField('Component');\n  const labelsStr = getField('Labels');\n  const labels = ['ai-generated'];\n  if (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\n  if (component) labels.push(component);\n  return { title, description, criteria, priority, estimate, component, labels };\n}\n\nfunction buildJiraFields(parsed, issueType, parentKey) {\n  const content = [];\n  if (parsed.description) content.push({ type: 'paragraph', content: [{ type: 'text', text: parsed.description }] });\n  if (parsed.criteria.length > 0) {\n    content.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Acceptance Criteria' }] });\n    content.push({ type: 'bulletList', content: parsed.criteria.map(c => ({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: c }] }] })) });\n  }\n  const fields = {\n    summary: parsed.title,\n    description: { type: 'doc', version: 1, content },\n    priority: { name: parsed.priority },\n    labels: parsed.labels\n  };\n  if (parentKey) fields.parent = { key: parentKey };\n  return fields;\n}\n\nfunction extractKey(input) {\n  if (!input) return '';\n  const browseMatch = input.match(/\\/browse\\/([A-Z]+-\\d+)/);\n  if (browseMatch) return browseMatch[1];\n  if (input.match(/^[A-Z]+-\\d+$/)) return input;\n  return input.trim();\n}\n\nconst body = $input.first().json.body;\nconst epicMarkdown = body.epicMarkdown || '';\nconst taskMarkdowns = body.taskMarkdowns || [];\nconst epicKey = extractKey(body.epicKey || '');\nconst taskKeys = (body.taskKeys || []).map(k => extractKey(k));\n\nconst epicParsed = parseMarkdown(epicMarkdown);\nconst epicIssueType = $env.JIRA_EPIC_ISSUE_TYPE || 'Epic';\n\n// For create: include project + issuetype. For update: only updatable fields.\nlet epicApiBody, epicMethod, epicUrl;\nif (epicKey) {\n  epicMethod = 'PUT';\n  epicUrl = $env.JIRA_BASE_URL + '/rest/api/3/issue/' + epicKey;\n  epicApiBody = { fields: buildJiraFields(epicParsed, epicIssueType) };\n} else {\n  epicMethod = 'POST';\n  epicUrl = $env.JIRA_BASE_URL + '/rest/api/3/issue';\n  const fields = buildJiraFields(epicParsed, epicIssueType);\n  fields.project = { key: $env.JIRA_PROJECT_KEY };\n  fields.issuetype = { name: epicIssueType };\n  epicApiBody = { fields };\n}\n\nreturn [{ json: { epicApiBody, epicMethod, epicUrl, epicKey, epicTitle: epicParsed.title, taskMarkdowns, taskKeys, isUpdate: !!epicKey } }];"
       },
       "id": "j1000000-0000-0000-0000-000000000002",
       "name": "Parse Epic Markdown",
@@ -27,8 +27,8 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.JIRA_BASE_URL }}/rest/api/3/issue",
+        "method": "={{ $json.epicMethod }}",
+        "url": "={{ $json.epicUrl }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
@@ -39,11 +39,11 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.epicBody) }}",
+        "jsonBody": "={{ JSON.stringify($json.epicApiBody) }}",
         "options": { "timeout": 30000 }
       },
       "id": "j1000000-0000-0000-0000-000000000003",
-      "name": "Create Epic",
+      "name": "Create or Update Epic",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [680, 300],
@@ -56,7 +56,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function parseMarkdown(md) {\n  const lines = md.split('\\n');\n  const titleLine = lines.find(l => l.startsWith('# '));\n  const title = titleLine ? titleLine.replace(/^# /, '') : 'Untitled';\n  const titleIdx = lines.indexOf(titleLine);\n  const descLines = [];\n  for (let i = (titleIdx >= 0 ? titleIdx + 1 : 0); i < lines.length; i++) {\n    if (lines[i].startsWith('## ')) break;\n    descLines.push(lines[i]);\n  }\n  const description = descLines.join(' ').replace(/\\s+/g, ' ').trim();\n  function getSection(heading) {\n    const start = lines.findIndex(l => l.startsWith('## ' + heading));\n    if (start === -1) return [];\n    const out = [];\n    for (let i = start + 1; i < lines.length; i++) {\n      if (lines[i].startsWith('## ')) break;\n      if (lines[i].trim()) out.push(lines[i]);\n    }\n    return out;\n  }\n  function getField(heading) { const s = getSection(heading); return s.length ? s[0].trim() : ''; }\n  const criteria = getSection('Acceptance Criteria').filter(l => l.startsWith('- ')).map(l => l.replace(/^- /, ''));\n  const priority = getField('Priority') || ($env.JIRA_DEFAULT_PRIORITY || 'Medium');\n  const component = getField('Component');\n  const labelsStr = getField('Labels');\n  const labels = ['ai-generated'];\n  if (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\n  if (component) labels.push(component);\n  return { title, description, criteria, priority, labels };\n}\n\nfunction buildJiraBody(parsed, issueType, parentKey) {\n  const content = [];\n  if (parsed.description) content.push({ type: 'paragraph', content: [{ type: 'text', text: parsed.description }] });\n  if (parsed.criteria.length > 0) {\n    content.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Acceptance Criteria' }] });\n    content.push({ type: 'bulletList', content: parsed.criteria.map(c => ({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: c }] }] })) });\n  }\n  const fields = {\n    project: { key: $env.JIRA_PROJECT_KEY },\n    summary: parsed.title,\n    description: { type: 'doc', version: 1, content },\n    issuetype: { name: issueType },\n    priority: { name: parsed.priority },\n    labels: parsed.labels\n  };\n  if (parentKey) fields.parent = { key: parentKey };\n  return { fields };\n}\n\nconst epicResponse = $input.first().json;\nconst epicKey = epicResponse.key;\nconst epicTitle = $('Parse Epic Markdown').first().json.epicTitle;\nconst taskMarkdowns = $('Parse Epic Markdown').first().json.taskMarkdowns || [];\nconst storyType = $env.JIRA_STORY_ISSUE_TYPE || 'Story';\n\nif (taskMarkdowns.length === 0) {\n  return [{ json: { epicKey, epicTitle, tasks: [], taskCount: 0, noTasks: true } }];\n}\n\nreturn taskMarkdowns.map((md, i) => {\n  const parsed = parseMarkdown(md);\n  const taskBody = buildJiraBody(parsed, storyType, epicKey);\n  return { json: { taskBody, taskTitle: parsed.title, epicKey, epicTitle, taskIndex: i } };\n});"
+        "jsCode": "function parseMarkdown(md) {\n  const lines = md.split('\\n');\n  const titleLine = lines.find(l => l.startsWith('# '));\n  const title = titleLine ? titleLine.replace(/^# /, '') : 'Untitled';\n  const titleIdx = lines.indexOf(titleLine);\n  const descLines = [];\n  for (let i = (titleIdx >= 0 ? titleIdx + 1 : 0); i < lines.length; i++) {\n    if (lines[i].startsWith('## ')) break;\n    descLines.push(lines[i]);\n  }\n  const description = descLines.join(' ').replace(/\\s+/g, ' ').trim();\n  function getSection(heading) {\n    const start = lines.findIndex(l => l.startsWith('## ' + heading));\n    if (start === -1) return [];\n    const out = [];\n    for (let i = start + 1; i < lines.length; i++) {\n      if (lines[i].startsWith('## ')) break;\n      if (lines[i].trim()) out.push(lines[i]);\n    }\n    return out;\n  }\n  function getField(heading) { const s = getSection(heading); return s.length ? s[0].trim() : ''; }\n  const criteria = getSection('Acceptance Criteria').filter(l => l.startsWith('- ')).map(l => l.replace(/^- /, ''));\n  const priority = getField('Priority') || ($env.JIRA_DEFAULT_PRIORITY || 'Medium');\n  const component = getField('Component');\n  const labelsStr = getField('Labels');\n  const labels = ['ai-generated'];\n  if (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\n  if (component) labels.push(component);\n  return { title, description, criteria, priority, labels };\n}\n\nfunction buildJiraFields(parsed, parentKey) {\n  const content = [];\n  if (parsed.description) content.push({ type: 'paragraph', content: [{ type: 'text', text: parsed.description }] });\n  if (parsed.criteria.length > 0) {\n    content.push({ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: 'Acceptance Criteria' }] });\n    content.push({ type: 'bulletList', content: parsed.criteria.map(c => ({ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: c }] }] })) });\n  }\n  const fields = { summary: parsed.title, description: { type: 'doc', version: 1, content }, priority: { name: parsed.priority }, labels: parsed.labels };\n  if (parentKey) fields.parent = { key: parentKey };\n  return fields;\n}\n\nconst epicResponse = $input.first().json;\nconst prev = $('Parse Epic Markdown').first().json;\n// PUT returns empty body (204), POST returns {key: 'PROJ-123'}\nconst epicKey = prev.epicKey || epicResponse.key;\nconst epicTitle = prev.epicTitle;\nconst taskMarkdowns = prev.taskMarkdowns || [];\nconst taskKeys = prev.taskKeys || [];\nconst storyType = $env.JIRA_STORY_ISSUE_TYPE || 'Story';\nconst jiraBase = $env.JIRA_BASE_URL;\n\nif (taskMarkdowns.length === 0) {\n  return [{ json: { epicKey, epicTitle, noTasks: true } }];\n}\n\nreturn taskMarkdowns.map((md, i) => {\n  const parsed = parseMarkdown(md);\n  const existingKey = taskKeys[i] || '';\n  let method, url, apiBody;\n  if (existingKey) {\n    method = 'PUT';\n    url = jiraBase + '/rest/api/3/issue/' + existingKey;\n    apiBody = { fields: buildJiraFields(parsed, epicKey) };\n  } else {\n    method = 'POST';\n    url = jiraBase + '/rest/api/3/issue';\n    const fields = buildJiraFields(parsed, epicKey);\n    fields.project = { key: $env.JIRA_PROJECT_KEY };\n    fields.issuetype = { name: storyType };\n    apiBody = { fields };\n  }\n  return { json: { apiBody, method, url, taskTitle: parsed.title, epicKey, epicTitle, existingKey } };\n});"
       },
       "id": "j1000000-0000-0000-0000-000000000004",
       "name": "Prepare Tasks",
@@ -87,8 +87,8 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.JIRA_BASE_URL }}/rest/api/3/issue",
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
@@ -99,11 +99,11 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.taskBody) }}",
+        "jsonBody": "={{ JSON.stringify($json.apiBody) }}",
         "options": { "timeout": 30000 }
       },
       "id": "j1000000-0000-0000-0000-000000000006",
-      "name": "Create Task Issue",
+      "name": "Create or Update Task",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1340, 200],
@@ -116,7 +116,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const epicKey = $('Prepare Tasks').first().json.epicKey;\nconst epicTitle = $('Prepare Tasks').first().json.epicTitle;\nconst jiraBase = $env.JIRA_BASE_URL;\n\nconst taskItems = $input.all();\nconst tasks = taskItems.map(item => ({\n  key: item.json.key,\n  title: item.json.fields?.summary || '',\n  url: jiraBase + '/browse/' + item.json.key\n}));\n\nreturn [{ json: {\n  success: true,\n  epic: { key: epicKey, title: epicTitle, url: jiraBase + '/browse/' + epicKey },\n  tasks,\n  taskCount: tasks.length\n} }];"
+        "jsCode": "const prev = $('Prepare Tasks').first().json;\nconst epicKey = prev.epicKey;\nconst epicTitle = prev.epicTitle;\nconst jiraBase = $env.JIRA_BASE_URL;\n\nconst allTasks = $('Prepare Tasks').all();\nconst allResults = $input.all();\n\nconst tasks = allTasks.map((t, i) => {\n  const result = allResults[i]?.json || {};\n  // PUT returns empty, POST returns {key}. Use existingKey as fallback.\n  const key = result.key || t.json.existingKey;\n  return { key, title: t.json.taskTitle, url: jiraBase + '/browse/' + key, action: t.json.existingKey ? 'updated' : 'created' };\n});\n\nreturn [{ json: {\n  success: true,\n  epic: { key: epicKey, title: epicTitle, url: jiraBase + '/browse/' + epicKey, action: $('Parse Epic Markdown').first().json.isUpdate ? 'updated' : 'created' },\n  tasks,\n  taskCount: tasks.length\n} }];"
       },
       "id": "j1000000-0000-0000-0000-000000000007",
       "name": "Aggregate Results",
@@ -126,7 +126,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const epicKey = $input.first().json.epicKey;\nconst epicTitle = $input.first().json.epicTitle;\nconst jiraBase = $env.JIRA_BASE_URL;\n\nreturn [{ json: {\n  success: true,\n  epic: { key: epicKey, title: epicTitle, url: jiraBase + '/browse/' + epicKey },\n  tasks: [],\n  taskCount: 0\n} }];"
+        "jsCode": "const epicKey = $input.first().json.epicKey;\nconst epicTitle = $input.first().json.epicTitle;\nconst jiraBase = $env.JIRA_BASE_URL;\nconst isUpdate = $('Parse Epic Markdown').first().json.isUpdate;\n\nreturn [{ json: {\n  success: true,\n  epic: { key: epicKey, title: epicTitle, url: jiraBase + '/browse/' + epicKey, action: isUpdate ? 'updated' : 'created' },\n  tasks: [],\n  taskCount: 0\n} }];"
       },
       "id": "j1000000-0000-0000-0000-000000000008",
       "name": "Epic Only Result",
@@ -148,16 +148,16 @@
   ],
   "connections": {
     "Webhook Trigger": { "main": [[{ "node": "Parse Epic Markdown", "type": "main", "index": 0 }]] },
-    "Parse Epic Markdown": { "main": [[{ "node": "Create Epic", "type": "main", "index": 0 }]] },
-    "Create Epic": { "main": [[{ "node": "Prepare Tasks", "type": "main", "index": 0 }]] },
+    "Parse Epic Markdown": { "main": [[{ "node": "Create or Update Epic", "type": "main", "index": 0 }]] },
+    "Create or Update Epic": { "main": [[{ "node": "Prepare Tasks", "type": "main", "index": 0 }]] },
     "Prepare Tasks": { "main": [[{ "node": "Has Tasks?", "type": "main", "index": 0 }]] },
     "Has Tasks?": {
       "main": [
-        [{ "node": "Create Task Issue", "type": "main", "index": 0 }],
+        [{ "node": "Create or Update Task", "type": "main", "index": 0 }],
         [{ "node": "Epic Only Result", "type": "main", "index": 0 }]
       ]
     },
-    "Create Task Issue": { "main": [[{ "node": "Aggregate Results", "type": "main", "index": 0 }]] },
+    "Create or Update Task": { "main": [[{ "node": "Aggregate Results", "type": "main", "index": 0 }]] },
     "Aggregate Results": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] },
     "Epic Only Result": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
   },

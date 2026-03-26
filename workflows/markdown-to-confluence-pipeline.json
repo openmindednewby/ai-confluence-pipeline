@@ -1,5 +1,5 @@
 {
-  "name": "Markdown → Confluence Page",
+  "name": "Markdown → Confluence Page (Create or Update)",
   "nodes": [
     {
       "parameters": {
@@ -22,7 +22,8 @@
             { "id": "page-md", "name": "pageMarkdown", "value": "={{ $json.body.pageMarkdown || '' }}", "type": "string" },
             { "id": "section-mds", "name": "sectionMarkdowns", "value": "={{ JSON.stringify($json.body.sectionMarkdowns || []) }}", "type": "string" },
             { "id": "title-override", "name": "titleOverride", "value": "={{ $json.body.title || '' }}", "type": "string" },
-            { "id": "labels", "name": "labels", "value": "={{ $json.body.labels || '' }}", "type": "string" }
+            { "id": "labels", "name": "labels", "value": "={{ $json.body.labels || '' }}", "type": "string" },
+            { "id": "page-id", "name": "pageId", "value": "={{ $json.body.pageId || '' }}", "type": "string" }
           ]
         }
       },
@@ -34,13 +35,99 @@
     },
     {
       "parameters": {
-        "jsCode": "const pageMarkdown = $input.first().json.pageMarkdown || '';\nconst sectionMarkdowns = JSON.parse($input.first().json.sectionMarkdowns || '[]');\nconst titleOverride = $input.first().json.titleOverride || '';\nconst labelsStr = $input.first().json.labels || '';\n\n// Combine all markdown\nlet combinedMd = pageMarkdown;\nfor (const section of sectionMarkdowns) {\n  if (section.trim()) {\n    combinedMd += '\\n\\n---\\n\\n' + section;\n  }\n}\n\n// Determine title\nlet title = titleOverride;\nif (!title) {\n  const titleMatch = combinedMd.match(/^# (.+)$/m);\n  title = titleMatch ? titleMatch[1] : 'Documentation';\n}\n\n// Build labels\nconst labels = ['ai-generated'];\nif (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\nconst labelsJson = labels.map(l => ({ prefix: 'global', name: l }));\n\n// Convert markdown to Confluence storage format HTML\nfunction mdToConfluenceHtml(md) {\n  const lines = md.split('\\n');\n  let html = '';\n  let inCodeBlock = false, codeContent = '', codeLang = 'text', inList = false;\n\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i];\n\n    if (line.startsWith('```') && !inCodeBlock) {\n      if (inList) { html += '</ul>'; inList = false; }\n      inCodeBlock = true;\n      codeLang = line.slice(3).trim() || 'text';\n      codeContent = '';\n      continue;\n    }\n    if (line.startsWith('```') && inCodeBlock) {\n      inCodeBlock = false;\n      html += '<ac:structured-macro ac:name=\"code\"><ac:parameter ac:name=\"language\">' + codeLang + '</ac:parameter><ac:plain-text-body><![CDATA[' + codeContent.trim() + ']]></ac:plain-text-body></ac:structured-macro>';\n      continue;\n    }\n    if (inCodeBlock) { codeContent += line + '\\n'; continue; }\n\n    // Tables\n    if (line.match(/^\\|.+\\|$/) && i + 1 < lines.length && lines[i+1].match(/^\\|[-| :]+\\|$/)) {\n      if (inList) { html += '</ul>'; inList = false; }\n      const headers = line.split('|').filter(c => c.trim()).map(c => '<th>' + c.trim() + '</th>').join('');\n      html += '<table><thead><tr>' + headers + '</tr></thead><tbody>';\n      i++;\n      while (i + 1 < lines.length && lines[i+1].match(/^\\|.+\\|$/)) {\n        i++;\n        const cells = lines[i].split('|').filter(c => c.trim()).map(c => '<td>' + c.trim() + '</td>').join('');\n        html += '<tr>' + cells + '</tr>';\n      }\n      html += '</tbody></table>';\n      continue;\n    }\n\n    if (line.startsWith('#### ')) { if (inList) { html += '</ul>'; inList = false; } html += '<h4>' + line.slice(5) + '</h4>'; continue; }\n    if (line.startsWith('### '))  { if (inList) { html += '</ul>'; inList = false; } html += '<h3>' + line.slice(4) + '</h3>'; continue; }\n    if (line.startsWith('## '))   { if (inList) { html += '</ul>'; inList = false; } html += '<h2>' + line.slice(3) + '</h2>'; continue; }\n    if (line.startsWith('# '))    { if (inList) { html += '</ul>'; inList = false; } html += '<h1>' + line.slice(2) + '</h1>'; continue; }\n    if (line.match(/^---+$/))     { if (inList) { html += '</ul>'; inList = false; } html += '<hr/>'; continue; }\n    if (line.startsWith('> '))    { if (inList) { html += '</ul>'; inList = false; } html += '<blockquote><p>' + line.slice(2) + '</p></blockquote>'; continue; }\n\n    if (line.match(/^[-*] /)) {\n      if (!inList) { html += '<ul>'; inList = true; }\n      let item = line.replace(/^[-*] /, '');\n      item = item.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');\n      item = item.replace(/\\*(.+?)\\*/g, '<em>$1</em>');\n      item = item.replace(/`([^`]+)`/g, '<code>$1</code>');\n      html += '<li>' + item + '</li>';\n      continue;\n    }\n\n    if (line.trim() === '') { if (inList) { html += '</ul>'; inList = false; } continue; }\n\n    if (inList) { html += '</ul>'; inList = false; }\n    let p = line;\n    p = p.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');\n    p = p.replace(/\\*(.+?)\\*/g, '<em>$1</em>');\n    p = p.replace(/`([^`]+)`/g, '<code>$1</code>');\n    p = p.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href=\"$2\">$1</a>');\n    html += '<p>' + p + '</p>';\n  }\n  if (inList) html += '</ul>';\n  return html;\n}\n\nlet html = mdToConfluenceHtml(combinedMd);\nconst date = new Date().toISOString().split('T')[0];\nhtml += '<hr/><p><em>Published from markdown by <a href=\"https://github.com/openmindednewby/ai-confluence-pipeline\">ai-confluence-pipeline</a> on ' + date + '</em></p>';\n\n// Build Confluence API body\nconst confBody = {\n  type: 'page',\n  title: title,\n  space: { key: $env.CONFLUENCE_SPACE_KEY },\n  body: { storage: { value: html, representation: 'storage' } },\n  metadata: { labels: labelsJson }\n};\n\nconst parentId = $env.CONFLUENCE_PARENT_PAGE_ID;\nif (parentId) confBody.ancestors = [{ id: parentId }];\n\nreturn [{ json: { confBody, title } }];"
+        "jsCode": "const pageMarkdown = $input.first().json.pageMarkdown || '';\nconst sectionMarkdowns = JSON.parse($input.first().json.sectionMarkdowns || '[]');\nconst titleOverride = $input.first().json.titleOverride || '';\nconst labelsStr = $input.first().json.labels || '';\nlet pageId = ($input.first().json.pageId || '').trim();\n\n// Extract page ID from URL if needed\nif (pageId) {\n  const pagesMatch = pageId.match(/\\/pages\\/(\\d+)/);\n  if (pagesMatch) pageId = pagesMatch[1];\n  else if (pageId.match(/^\\d+$/)) { /* already numeric */ }\n  else pageId = pageId.trim();\n}\n\nlet combinedMd = pageMarkdown;\nfor (const section of sectionMarkdowns) {\n  if (section.trim()) combinedMd += '\\n\\n---\\n\\n' + section;\n}\n\nlet title = titleOverride;\nif (!title) {\n  const titleMatch = combinedMd.match(/^# (.+)$/m);\n  title = titleMatch ? titleMatch[1] : 'Documentation';\n}\n\nconst labels = ['ai-generated'];\nif (labelsStr) labels.push(...labelsStr.split(',').map(l => l.trim()).filter(Boolean));\nconst labelsJson = labels.map(l => ({ prefix: 'global', name: l }));\n\nfunction mdToConfluenceHtml(md) {\n  const lines = md.split('\\n');\n  let html = '';\n  let inCodeBlock = false, codeContent = '', codeLang = 'text', inList = false;\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i];\n    if (line.startsWith('\\`\\`\\`') && !inCodeBlock) {\n      if (inList) { html += '</ul>'; inList = false; }\n      inCodeBlock = true; codeLang = line.slice(3).trim() || 'text'; codeContent = ''; continue;\n    }\n    if (line.startsWith('\\`\\`\\`') && inCodeBlock) {\n      inCodeBlock = false;\n      html += '<ac:structured-macro ac:name=\"code\"><ac:parameter ac:name=\"language\">' + codeLang + '</ac:parameter><ac:plain-text-body><![CDATA[' + codeContent.trim() + ']]></ac:plain-text-body></ac:structured-macro>'; continue;\n    }\n    if (inCodeBlock) { codeContent += line + '\\n'; continue; }\n    if (line.match(/^\\|.+\\|$/) && i + 1 < lines.length && lines[i+1].match(/^\\|[-| :]+\\|$/)) {\n      if (inList) { html += '</ul>'; inList = false; }\n      const headers = line.split('|').filter(c => c.trim()).map(c => '<th>' + c.trim() + '</th>').join('');\n      html += '<table><thead><tr>' + headers + '</tr></thead><tbody>'; i++;\n      while (i + 1 < lines.length && lines[i+1].match(/^\\|.+\\|$/)) { i++;\n        html += '<tr>' + lines[i].split('|').filter(c => c.trim()).map(c => '<td>' + c.trim() + '</td>').join('') + '</tr>';\n      }\n      html += '</tbody></table>'; continue;\n    }\n    if (line.startsWith('#### ')) { if (inList) { html += '</ul>'; inList = false; } html += '<h4>' + line.slice(5) + '</h4>'; continue; }\n    if (line.startsWith('### '))  { if (inList) { html += '</ul>'; inList = false; } html += '<h3>' + line.slice(4) + '</h3>'; continue; }\n    if (line.startsWith('## '))   { if (inList) { html += '</ul>'; inList = false; } html += '<h2>' + line.slice(3) + '</h2>'; continue; }\n    if (line.startsWith('# '))    { if (inList) { html += '</ul>'; inList = false; } html += '<h1>' + line.slice(2) + '</h1>'; continue; }\n    if (line.match(/^---+$/))     { if (inList) { html += '</ul>'; inList = false; } html += '<hr/>'; continue; }\n    if (line.startsWith('> '))    { if (inList) { html += '</ul>'; inList = false; } html += '<blockquote><p>' + line.slice(2) + '</p></blockquote>'; continue; }\n    if (line.match(/^[-*] /)) {\n      if (!inList) { html += '<ul>'; inList = true; }\n      let item = line.replace(/^[-*] /, '');\n      item = item.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>').replace(/\\*(.+?)\\*/g, '<em>$1</em>').replace(/`([^`]+)`/g, '<code>$1</code>');\n      html += '<li>' + item + '</li>'; continue;\n    }\n    if (line.trim() === '') { if (inList) { html += '</ul>'; inList = false; } continue; }\n    if (inList) { html += '</ul>'; inList = false; }\n    let p = line.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>').replace(/\\*(.+?)\\*/g, '<em>$1</em>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href=\"$2\">$1</a>');\n    html += '<p>' + p + '</p>';\n  }\n  if (inList) html += '</ul>';\n  return html;\n}\n\nlet html = mdToConfluenceHtml(combinedMd);\nconst date = new Date().toISOString().split('T')[0];\nhtml += '<hr/><p><em>Published from markdown by <a href=\"https://github.com/openmindednewby/ai-confluence-pipeline\">ai-confluence-pipeline</a> on ' + date + '</em></p>';\n\n// Determine method + url\nconst isUpdate = !!pageId;\nlet method, url;\nif (isUpdate) {\n  method = 'GET';\n  url = $env.CONFLUENCE_BASE_URL + '/wiki/rest/api/content/' + pageId + '?expand=version';\n} else {\n  method = 'POST';\n  url = $env.CONFLUENCE_BASE_URL + '/wiki/rest/api/content';\n}\n\nconst confBody = {\n  type: 'page',\n  title: title,\n  space: { key: $env.CONFLUENCE_SPACE_KEY },\n  body: { storage: { value: html, representation: 'storage' } },\n  metadata: { labels: labelsJson }\n};\n\nconst parentId = $env.CONFLUENCE_PARENT_PAGE_ID;\nif (parentId && !isUpdate) confBody.ancestors = [{ id: parentId }];\n\nreturn [{ json: { confBody, title, pageId, isUpdate, fetchUrl: isUpdate ? url : '', html, labelsJson } }];"
       },
       "id": "k1000000-0000-0000-0000-000000000003",
       "name": "Convert Markdown to Confluence HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "is-update",
+              "leftValue": "={{ $json.isUpdate }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "k1000000-0000-0000-0000-000000000010",
+      "name": "Create or Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.fetchUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "k1000000-0000-0000-0000-000000000011",
+      "name": "Get Page Version",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 150],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "confluence-auth",
+          "name": "Confluence Basic Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentPage = $input.first().json;\nconst prev = $('Convert Markdown to Confluence HTML').first().json;\nconst currentVersion = currentPage.version?.number || 1;\n\nconst updateBody = {\n  type: 'page',\n  title: prev.title,\n  space: { key: $env.CONFLUENCE_SPACE_KEY },\n  body: { storage: { value: prev.html, representation: 'storage' } },\n  version: { number: currentVersion + 1 }\n};\n\nreturn [{ json: { updateBody, pageId: prev.pageId, title: prev.title, isUpdate: true } }];"
+      },
+      "id": "k1000000-0000-0000-0000-000000000012",
+      "name": "Build Update Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 150]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.CONFLUENCE_BASE_URL }}/wiki/rest/api/content/={{ $json.pageId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.updateBody) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "k1000000-0000-0000-0000-000000000013",
+      "name": "Update Confluence Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 150],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "confluence-auth",
+          "name": "Confluence Basic Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -63,7 +150,7 @@
       "name": "Create Confluence Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 300],
+      "position": [1120, 450],
       "credentials": {
         "httpBasicAuth": {
           "id": "confluence-auth",
@@ -73,13 +160,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst title = $('Convert Markdown to Confluence HTML').first().json.title;\nconst url = (response._links?.base || '') + (response._links?.webui || '');\n\nreturn [{ json: {\n  success: true,\n  confluencePage: {\n    id: response.id,\n    title: title,\n    url: url\n  }\n} }];"
+        "jsCode": "const response = $input.first().json;\nconst prev = $('Convert Markdown to Confluence HTML').first().json;\nconst title = prev.title;\nconst isUpdate = prev.isUpdate;\nconst url = (response._links?.base || '') + (response._links?.webui || '');\n\nreturn [{ json: {\n  success: true,\n  confluencePage: {\n    id: response.id,\n    title: title,\n    url: url,\n    action: isUpdate ? 'updated' : 'created'\n  }\n} }];"
       },
       "id": "k1000000-0000-0000-0000-000000000005",
       "name": "Build Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 300]
+      "position": [1780, 300]
     },
     {
       "parameters": {
@@ -90,15 +177,23 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1340, 300]
+      "position": [2000, 300]
     }
   ],
   "connections": {
     "Webhook Trigger": { "main": [[{ "node": "Set Variables", "type": "main", "index": 0 }]] },
     "Set Variables": { "main": [[{ "node": "Convert Markdown to Confluence HTML", "type": "main", "index": 0 }]] },
-    "Convert Markdown to Confluence HTML": { "main": [[{ "node": "Create Confluence Page", "type": "main", "index": 0 }]] },
-    "Create Confluence Page": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
-    "Build Response": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Convert Markdown to Confluence HTML": { "main": [[{ "node": "Create or Update?", "type": "main", "index": 0 }]] },
+    "Create or Update?": {
+      "main": [
+        [{ "node": "Get Page Version", "type": "main", "index": 0 }],
+        [{ "node": "Create Confluence Page", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Page Version": { "main": [[{ "node": "Build Update Body", "type": "main", "index": 0 }]] },
+    "Build Update Body": { "main": [[{ "node": "Update Confluence Page", "type": "main", "index": 0 }]] },
+    "Update Confluence Page": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Create Confluence Page": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" },
   "tags": [{ "name": "ai-pipeline" }, { "name": "confluence" }, { "name": "markdown" }]

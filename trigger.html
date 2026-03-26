@@ -136,16 +136,29 @@
       </div>
     </div>
 
+    <input type="file" id="md-file-input" accept=".md,.txt,.markdown" style="display:none;" />
+
     <div id="jira-panel" style="display:none;">
       <div class="form-group">
-        <label>Epic Markdown <span class="label-hint">— title, description, acceptance criteria</span></label>
+        <label>Existing Epic Key/URL <span class="label-hint">(optional — leave blank to create new)</span></label>
+        <input id="epic-key" placeholder="e.g., PROJ-123 or https://company.atlassian.net/browse/PROJ-123" />
+      </div>
+      <div class="form-group">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="margin:0;">Epic Markdown <span class="label-hint">— title, description, acceptance criteria</span></label>
+          <button class="btn-secondary" onclick="importMdFile('epic-markdown')" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
+        </div>
         <textarea id="epic-markdown" rows="8" placeholder="# Epic Title&#10;&#10;Description of the epic...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;High&#10;&#10;## Labels&#10;notifications, backend"></textarea>
       </div>
       <div id="task-list">
         <div class="form-group task-entry">
+          <input class="task-key" placeholder="Existing task key (optional, e.g., PROJ-456)" style="margin-bottom:0.35rem;" />
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <label style="margin:0;">Task 1 <span class="label-hint">— becomes a Story linked to the epic</span></label>
-            <button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button>
+            <div>
+              <button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
+              <button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button>
+            </div>
           </div>
           <textarea class="task-markdown" rows="6" placeholder="# Task Title&#10;&#10;Task description...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;Medium&#10;&#10;## Estimate&#10;M&#10;&#10;## Component&#10;backend"></textarea>
         </div>
@@ -155,7 +168,14 @@
 
     <div id="confluence-panel" style="display:none;">
       <div class="form-group">
-        <label>Page Markdown <span class="label-hint">— main page content</span></label>
+        <label>Existing Page ID/URL <span class="label-hint">(optional — leave blank to create new)</span></label>
+        <input id="confluence-page-id" placeholder="e.g., 123456789 or https://company.atlassian.net/wiki/spaces/SPACE/pages/123456789/Title" />
+      </div>
+      <div class="form-group">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="margin:0;">Page Markdown <span class="label-hint">— main page content</span></label>
+          <button class="btn-secondary" onclick="importMdFile('page-markdown')" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
+        </div>
         <textarea id="page-markdown" rows="8" placeholder="# Page Title&#10;&#10;Introduction content...&#10;&#10;## Section Heading&#10;&#10;Section content with **bold**, *italic*, `code`, tables, lists..."></textarea>
       </div>
       <div class="row">
@@ -244,14 +264,44 @@
       else btn.textContent = 'Generate Analysis';
     }
 
+    // --- File import ---
+    function importMdFile(textareaId) {
+      const fileInput = document.getElementById('md-file-input');
+      fileInput.value = '';
+      fileInput.onchange = function() {
+        if (!this.files.length) return;
+        const reader = new FileReader();
+        reader.onload = function(e) { document.getElementById(textareaId).value = e.target.result; };
+        reader.readAsText(this.files[0]);
+      };
+      fileInput.click();
+    }
+
+    function importMdToSibling(btn) {
+      const entry = btn.closest('.task-entry') || btn.closest('.section-entry');
+      const textarea = entry.querySelector('textarea');
+      if (!textarea) return;
+      const fileInput = document.getElementById('md-file-input');
+      fileInput.value = '';
+      fileInput.onchange = function() {
+        if (!this.files.length) return;
+        const reader = new FileReader();
+        reader.onload = function(e) { textarea.value = e.target.result; };
+        reader.readAsText(this.files[0]);
+      };
+      fileInput.click();
+    }
+
     // --- Dynamic task entries ---
     function addTask() {
       taskCount++;
       const div = document.createElement('div');
       div.className = 'form-group task-entry';
-      div.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+      div.innerHTML = '<input class="task-key" placeholder="Existing task key (optional, e.g., PROJ-456)" style="margin-bottom:0.35rem;" />' +
+        '<div style="display:flex; justify-content:space-between; align-items:center;">' +
         '<label style="margin:0;">Task ' + taskCount + ' <span class="label-hint">— becomes a Story linked to the epic</span></label>' +
-        '<button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div>' +
+        '<div><button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button> ' +
+        '<button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div></div>' +
         '<textarea class="task-markdown" rows="6" placeholder="# Task Title\n\nTask description...\n\n## Acceptance Criteria\n- ...\n\n## Estimate\nM\n\n## Component\nbackend"></textarea>';
       document.getElementById('task-list').appendChild(div);
     }
@@ -272,7 +322,8 @@
       div.className = 'form-group section-entry';
       div.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
         '<label style="margin:0;">Section ' + sectionCount + ' <span class="label-hint">— appended to the page</span></label>' +
-        '<button class="btn-secondary" onclick="removeSection(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div>' +
+        '<div><button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button> ' +
+        '<button class="btn-secondary" onclick="removeSection(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div></div>' +
         '<textarea class="section-markdown" rows="6" placeholder="# Section Title\n\nSection content..."></textarea>';
       document.getElementById('section-list').appendChild(div);
     }
@@ -294,19 +345,27 @@
         document.getElementById('status').textContent = 'Please enter the epic markdown.';
         return;
       }
-      const taskMarkdowns = Array.from(document.querySelectorAll('.task-markdown'))
-        .map(ta => ta.value.trim()).filter(Boolean);
+      const epicKey = document.getElementById('epic-key').value.trim();
+      const taskEntries = document.querySelectorAll('#task-list .task-entry');
+      const taskMarkdowns = [];
+      const taskKeys = [];
+      taskEntries.forEach(entry => {
+        const md = entry.querySelector('.task-markdown').value.trim();
+        const key = entry.querySelector('.task-key')?.value.trim() || '';
+        if (md) { taskMarkdowns.push(md); taskKeys.push(key); }
+      });
 
+      const isUpdate = !!epicKey;
       document.getElementById('submit').disabled = true;
       document.getElementById('status').className = 'status loading';
-      document.getElementById('status').textContent = 'Creating Jira Epic + ' + taskMarkdowns.length + ' Stories...';
+      document.getElementById('status').textContent = (isUpdate ? 'Updating' : 'Creating') + ' Jira Epic + ' + taskMarkdowns.length + ' Stories...';
       document.getElementById('result').style.display = 'none';
 
       try {
         const response = await fetch('http://localhost:' + PORT + '/webhook/markdown-to-jira', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ epicMarkdown, taskMarkdowns })
+          body: JSON.stringify({ epicMarkdown, taskMarkdowns, epicKey, taskKeys })
         });
         let data = await response.json();
         if (Array.isArray(data)) data = data[0];
@@ -314,7 +373,8 @@
 
         if (data.success) {
           document.getElementById('status').className = 'status success';
-          document.getElementById('status').textContent = 'Epic ' + data.epic.key + ' created with ' + data.taskCount + ' linked stories.';
+          const epicAction = data.epic.action || 'created';
+          document.getElementById('status').textContent = 'Epic ' + data.epic.key + ' ' + epicAction + ' with ' + data.taskCount + ' linked stories.';
 
           const links = document.getElementById('result-links');
           links.innerHTML = '<a href="' + data.epic.url + '" target="_blank">' + data.epic.key + ' (Epic)</a>';
@@ -351,17 +411,19 @@
         .map(ta => ta.value.trim()).filter(Boolean);
       const title = document.getElementById('confluence-title').value.trim();
       const labels = document.getElementById('confluence-labels').value.trim();
+      const pageId = document.getElementById('confluence-page-id').value.trim();
 
+      const isUpdate = !!pageId;
       document.getElementById('submit').disabled = true;
       document.getElementById('status').className = 'status loading';
-      document.getElementById('status').textContent = 'Publishing to Confluence...';
+      document.getElementById('status').textContent = (isUpdate ? 'Updating' : 'Publishing') + ' Confluence page...';
       document.getElementById('result').style.display = 'none';
 
       try {
         const response = await fetch('http://localhost:' + PORT + '/webhook/markdown-to-confluence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pageMarkdown, sectionMarkdowns, title, labels })
+          body: JSON.stringify({ pageMarkdown, sectionMarkdowns, title, labels, pageId })
         });
         let data = await response.json();
         if (Array.isArray(data)) data = data[0];
@@ -369,7 +431,8 @@
 
         if (data.success) {
           document.getElementById('status').className = 'status success';
-          document.getElementById('status').textContent = 'Confluence page created: ' + data.confluencePage.title;
+          const pageAction = data.confluencePage.action || 'created';
+          document.getElementById('status').textContent = 'Confluence page ' + pageAction + ': ' + data.confluencePage.title;
 
           document.getElementById('result-links').innerHTML = '<a href="' + data.confluencePage.url + '" target="_blank">Open Confluence Page</a>';
           document.getElementById('download-actions').style.display = 'none';
@@ -755,8 +818,11 @@
       document.getElementById('result-links').innerHTML = '';
       document.getElementById('iterative-panel').style.display = 'none';
       document.getElementById('feedback').value = '';
+      document.getElementById('epic-key').value = '';
       document.getElementById('epic-markdown').value = '';
+      document.querySelectorAll('.task-key').forEach(el => el.value = '');
       document.querySelectorAll('.task-markdown').forEach(ta => ta.value = '');
+      document.getElementById('confluence-page-id').value = '';
       document.getElementById('page-markdown').value = '';
       document.getElementById('confluence-title').value = '';
       document.getElementById('confluence-labels').value = '';
