@@ -28,12 +28,14 @@ Models accessible via GitHub Models API include:
 | GPT-4.1 | `openai/gpt-4.1` | Great, coding + long context |
 | GPT-4o | `gpt-4o` | Good general purpose |
 | GPT-4o mini | `gpt-4o-mini` | Good, higher rate limits |
-| Claude Opus 4 | `anthropic/claude-4-opus` | Best Claude |
-| Claude Sonnet 4 | `anthropic/claude-4-sonnet` | Great, faster |
+| Claude Opus 4 | `anthropic/claude-4-opus` | Best Claude (unreliable — see note) |
+| Claude Sonnet 4 | `anthropic/claude-4-sonnet` | Great, faster (unreliable — see note) |
 | Llama 4 Scout | `meta/llama-4-scout` | Good, open-source |
 | DeepSeek R1 | `deepseek/deepseek-r1` | Good, reasoning |
 
 > **Note:** Model IDs are inconsistent — some have a vendor prefix (`openai/gpt-5`), some don't (`gpt-4o`). Always check the [GitHub Models marketplace](https://github.com/marketplace?type=models) for exact IDs.
+
+> **Claude via GitHub Models:** In our testing, Claude models (`anthropic/claude-4-opus`, `anthropic/claude-4-sonnet`) did not work reliably through GitHub Models API. If you want to use Claude, we recommend using the Anthropic API directly instead — see the `technical-analysis-pipeline.json` workflow and set `AI_PROVIDER=claude` with your `ANTHROPIC_API_KEY`.
 
 > Check the full catalog: `GET https://models.github.ai/catalog/models`
 

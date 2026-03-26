@@ -73,6 +73,8 @@
         <label for="pipeline">Pipeline</label>
         <select id="pipeline">
           <option value="preview">Preview — save as markdown, push later</option>
+          <option value="preview-cli">Preview via Claude CLI — no API keys needed</option>
+          <option value="preview-gh">Preview via gh models CLI (GitHub Copilot) — no API keys needed</option>
           <option value="analyze">Direct Push — Confluence + Jira</option>
           <option value="analyze-no-jira">Direct Push — Confluence only</option>
         </select>
@@ -96,6 +98,7 @@
             <option value="adr">Architecture Decision Record</option>
             <option value="post-mortem">Post-Mortem / Incident Report</option>
             <option value="runbook">Operational Runbook</option>
+            <option value="service-documentation">Service / App / Library Documentation</option>
           </optgroup>
           <optgroup label="Jira Only (quick tickets)">
             <option value="bug-fix">Bug Fix</option>
@@ -200,6 +203,7 @@
       'adr': 'Architecture Decision Record — options, decision, consequences (no tickets)',
       'post-mortem': 'Blameless incident analysis with timeline, root cause, and action items (no tickets)',
       'runbook': 'Step-by-step operational procedures for on-call (no tickets)',
+      'service-documentation': 'Key files, how to run, architecture, issues, and improvements (no tickets)',
       'bug-fix': 'Root cause analysis and fix ticket — Jira only, no Confluence page',
       'dependency-update': 'Dependency upgrade plan with breaking changes — Jira only',
       'tech-debt': 'Tech debt item with business justification — Jira only',
@@ -235,8 +239,8 @@
       status.textContent = `Generating analysis using "${TEMPLATE_DESCRIPTIONS[template]?.split('—')[0]?.trim() || template}" template... this takes 15-60 seconds.`;
       result.style.display = 'none';
 
-      const isPreview = pipeline === 'preview';
-      const webhookPath = isPreview ? 'preview' : 'analyze';
+      const isPreview = pipeline === 'preview' || pipeline === 'preview-cli' || pipeline === 'preview-gh';
+      const webhookPath = pipeline === 'preview-cli' ? 'preview-cli' : (pipeline === 'preview-gh' ? 'preview-gh' : (pipeline === 'preview' ? 'preview' : 'analyze'));
 
       const body = {
         featureDescription: description,

@@ -1,6 +1,23 @@
 # Setup Guide
 
-## Prerequisites
+## Choose Your Approach
+
+There are **two ways** to use this pipeline:
+
+| Approach | What you need | Best for |
+|----------|---------------|----------|
+| **CLI Scripts** (no Docker) | `claude` CLI or `gh` CLI with Copilot | Quick setup, personal use, work laptops where you can't run Docker |
+| **n8n Workflows** (Docker) | Docker Desktop, `.env` configuration | Teams, browser UI, automated Confluence/Jira publishing |
+
+**If you just want to generate analyses quickly**, skip the Docker/n8n setup and go straight to **[CLI Setup Guide](CLI_SETUP.md)**. You only need the `claude` CLI or `gh` CLI authenticated — no API keys, no Docker, no `.env` file.
+
+**If you want the full pipeline** (browser form, automatic Confluence pages, Jira tickets), continue with the n8n setup below.
+
+---
+
+## n8n Pipeline Setup (Docker)
+
+### Prerequisites
 
 - **Docker Desktop** — required to run n8n
   - **Windows:** Download from https://docs.docker.com/desktop/setup/install/windows-install/ → run the installer → restart your PC if prompted
@@ -211,15 +228,30 @@ Same as Pipeline B, but uses Claude directly via Anthropic API
 
 ---
 
+### Pipeline D & E: CLI-based (no API keys, optional n8n)
+
+If you run n8n **natively** (not Docker), there are also two CLI-based workflow variants:
+
+- `workflows/cli-preview-pipeline.json` — uses `claude -p` (Claude Code CLI)
+- `workflows/gh-models-cli-pipeline.json` — uses `gh models run` (GitHub Copilot CLI)
+
+These use the Execute Command node instead of HTTP Request. They appear as extra options in the `trigger.html` browser form.
+
+> **Docker users:** These workflows do NOT work in Docker because the CLIs aren't available inside the container. Use the standalone scripts instead — see [CLI Setup Guide](CLI_SETUP.md).
+
+---
+
 ### Which one should I pick?
 
 | Situation | Use |
 |-----------|-----|
 | Just getting started, want to try it out | **Pipeline A** (Preview) |
+| Don't want Docker, have `claude` or `gh` CLI | **[CLI Scripts](CLI_SETUP.md)** |
 | Validated the output, want to automate | **Pipeline B** (GitHub Models) |
 | Need best quality, have API budget | **Pipeline C** (Anthropic) |
 | Want to review before publishing | **Pipeline A** (Preview) |
 | High volume (50+ analyses/day) | **Pipeline C** (Anthropic — no rate limits) |
+| At work with Copilot, can't install Docker | **[gh models CLI](CLI_SETUP.md#option-a-github-copilot-cli-gh-models)** |
 
 > **You can import multiple workflows** into n8n and use them side by side. Each has a different webhook URL (`/webhook/preview` vs `/webhook/analyze`).
 
@@ -288,7 +320,9 @@ No terminal needed. Works in any browser. Press **Ctrl+Enter** to submit quickly
 
 > **Note:** n8n must be running (`docker compose up -d`) for the form to work. If you see "Cannot reach n8n", start it first.
 
-### Option 2: CLI Scripts (for terminal users)
+### Option 2: CLI Scripts — via n8n webhook (for terminal users)
+
+These scripts call the n8n webhook (requires n8n running):
 
 ```bash
 # Preview (save markdown locally, push later)
@@ -311,6 +345,27 @@ No terminal needed. Works in any browser. Press **Ctrl+Enter** to submit quickly
 .\scripts\trigger-analysis.ps1 -Description "Add user notification preferences"
 .\scripts\push-to-confluence.ps1 -File preview\20260324-143022-user-notifications.json -CreateJira
 ```
+
+### Option 2b: CLI Scripts — standalone (no n8n needed)
+
+These scripts call the AI directly via CLI — no n8n, no Docker required:
+
+```bash
+# Via Claude Code CLI
+./scripts/cli-preview.sh "Add user notification preferences"
+./scripts/cli-preview.sh "Document the payments service" --template service-documentation
+
+# Via GitHub Copilot CLI (gh models)
+./scripts/gh-models-preview.sh "Add user notification preferences"
+./scripts/gh-models-preview.sh "Document the payments service" --template service-documentation
+```
+
+```powershell
+.\scripts\cli-preview.ps1 -Description "Add user notification preferences"
+.\scripts\gh-models-preview.ps1 -Description "Add user notification preferences"
+```
+
+See **[CLI Setup Guide](CLI_SETUP.md)** for full details.
 
 ### Option 3: From n8n UI (test mode)
 

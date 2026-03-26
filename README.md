@@ -23,24 +23,45 @@ Feature Description → AI Analysis → Confluence Page → Jira Tasks
 
 ## Quick Start
 
+### Fastest: CLI only (no Docker, no API keys)
+
+If you have the `claude` CLI (Claude Code) or GitHub Copilot (`gh` CLI):
+
 ```bash
-# 1. Clone
 git clone https://github.com/openmindednewby/ai-confluence-pipeline.git
 cd ai-confluence-pipeline
 
-# 2. Configure
+# Option A: Claude Code CLI
+./scripts/cli-preview.sh "Add user notification preferences"
+
+# Option B: GitHub Copilot CLI
+gh extension install github/gh-models   # one-time setup
+./scripts/gh-models-preview.sh "Add user notification preferences"
+```
+
+Output saved to `preview/` as markdown + JSON. See **[CLI Setup Guide](docs/CLI_SETUP.md)** for full details.
+
+### Full pipeline: n8n + Docker (browser UI, auto-publish to Confluence/Jira)
+
+```bash
+git clone https://github.com/openmindednewby/ai-confluence-pipeline.git
+cd ai-confluence-pipeline
+
+# 1. Configure
 cp .env.example .env
 # Edit .env with your API keys (see docs/SETUP.md)
 
-# 3. Start n8n
+# 2. Start n8n
 docker compose up -d
 
-# 4. Import workflow
-# Open http://localhost:10353 → Import → workflows/technical-analysis-pipeline.json
+# 3. Import workflow
+# Open http://localhost:10353 → Import → workflows/preview-pipeline.json
 
-# 5. Run it
-./scripts/trigger-analysis.sh "Add user notification preferences with email and push channels"
+# 4. Run it
+./scripts/trigger-preview.sh "Add user notification preferences with email and push channels"
 ```
+
+See **[Setup Guide](docs/SETUP.md)** for full walkthrough.
 
 ## Example Output
 
@@ -112,37 +133,86 @@ The prompts in `prompts/` are what the current n8n workflow uses. The templates 
 
 ## Workflows
 
-### Preview First (Recommended)
+There are 5 ways to run the pipeline. Pick the one that fits your setup:
 
-Generate analysis as local markdown files, review/edit, then push to Confluence when ready.
+| # | Pipeline | AI Backend | Requires | Script / Workflow |
+|---|----------|-----------|----------|-------------------|
+| 1 | **gh models CLI** | GitHub Copilot (`gh models run`) | `gh` CLI + extension | `scripts/gh-models-preview.sh` |
+| 2 | **Claude Code CLI** | Claude Code (`claude -p`) | `claude` CLI | `scripts/cli-preview.sh` |
+| 3 | **n8n Preview** | GitHub Models REST API | Docker + n8n | `workflows/preview-pipeline.json` |
+| 4 | **n8n Direct Push** (free) | GitHub Models REST API | Docker + n8n | `workflows/github-models-pipeline.json` |
+| 5 | **n8n Direct Push** (paid) | Anthropic REST API | Docker + n8n + API key | `workflows/technical-analysis-pipeline.json` |
+
+Pipelines 1-2 are **standalone scripts** — no Docker, no n8n, no API keys. Just a CLI tool and a terminal.
+Pipelines 3-5 require **Docker + n8n** and support the browser UI (`trigger.html`).
+
+> For full CLI setup instructions, see **[docs/CLI_SETUP.md](docs/CLI_SETUP.md)**.
+> For full n8n/Docker setup, see **[docs/SETUP.md](docs/SETUP.md)**.
+
+---
+
+### CLI Workflows (no Docker, no n8n, no API keys)
+
+#### GitHub Copilot CLI (`gh models`)
+
+Uses the `gh-models` extension to call models on the GitHub Models marketplace. Default model: `anthropic/claude-4-opus`.
 
 ```bash
-# Step 1: Generate preview
-./scripts/trigger-preview.sh "Add user notification preferences"
-# → Saves preview/20260324-143022-user-notifications.md   (review this)
-# → Saves preview/20260324-143022-user-notifications.json (data for push)
+# One-time setup
+gh extension install github/gh-models
 
-# Step 2: Review and edit the markdown in your editor
-
-# Step 3: Push to Confluence
-./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json
-
-# Step 3 (with Jira tickets):
-./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json --jira
+# Run
+./scripts/gh-models-preview.sh "Add user notification preferences"
+./scripts/gh-models-preview.sh "Document the payments service" --template service-documentation
+./scripts/gh-models-preview.sh "Migrate auth" --template tech-migration --context "Using session cookies"
+./scripts/gh-models-preview.sh "Add feature X" --model openai/gpt-4.1
 ```
 
 ```powershell
-# PowerShell
-.\scripts\trigger-preview.ps1 -Description "Add user notification preferences"
-.\scripts\push-to-confluence.ps1 -File preview\20260324-143022-user-notifications.json
-.\scripts\push-to-confluence.ps1 -File preview\20260324-143022-user-notifications.json -CreateJira
+.\scripts\gh-models-preview.ps1 -Description "Add user notification preferences"
+.\scripts\gh-models-preview.ps1 -Description "Document payments" -Template service-documentation
 ```
 
-Import `workflows/preview-pipeline.json` into n8n for this workflow.
+#### Claude Code CLI (`claude`)
 
-### Direct Push (Original)
+Uses the `claude` CLI directly. Uses your Claude Code default model (e.g., `claude-opus-4-6`).
 
-Skip preview, push directly to Confluence and create Jira tickets in one step.
+```bash
+./scripts/cli-preview.sh "Add user notification preferences"
+./scripts/cli-preview.sh "Document the payments service" --template service-documentation
+./scripts/cli-preview.sh "Migrate auth" --template tech-migration --context "Using session cookies"
+./scripts/cli-preview.sh "Add feature X" --model claude-opus-4-6
+```
+
+```powershell
+.\scripts\cli-preview.ps1 -Description "Add user notification preferences"
+.\scripts\cli-preview.ps1 -Description "Document payments" -Template service-documentation
+```
+
+Both output to `preview/` as `.md` + `.json`. Push to Confluence after reviewing:
+
+```bash
+./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json
+./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json --jira
+```
+
+---
+
+### n8n Workflows (Docker, browser UI, auto-publish)
+
+#### Preview First (Recommended for getting started)
+
+```bash
+./scripts/trigger-preview.sh "Add user notification preferences"
+# → preview/20260324-143022-user-notifications.md   (review this)
+# → preview/20260324-143022-user-notifications.json  (push when ready)
+
+./scripts/push-to-confluence.sh preview/20260324-143022-user-notifications.json --jira
+```
+
+Workflow: `workflows/preview-pipeline.json`
+
+#### Direct Push (one-step Confluence + Jira)
 
 ```bash
 ./scripts/trigger-analysis.sh "Add feature X"
@@ -150,12 +220,9 @@ Skip preview, push directly to Confluence and create Jira tickets in one step.
 ./scripts/trigger-analysis.sh "Add feature X" --context "We use PostgreSQL"
 ```
 
-```powershell
-.\scripts\trigger-analysis.ps1 -Description "Add feature X"
-.\scripts\trigger-analysis.ps1 -Description "Add feature X" -NoJira
-```
+Workflow: `workflows/github-models-pipeline.json` (free) or `workflows/technical-analysis-pipeline.json` (Anthropic, paid).
 
-Import `workflows/github-models-pipeline.json` (free) or `workflows/technical-analysis-pipeline.json` (Anthropic) for this workflow.
+There are also n8n workflow variants for both CLIs (`workflows/cli-preview-pipeline.json` and `workflows/gh-models-cli-pipeline.json`) — these use the Execute Command node and only work with native n8n (not Docker).
 
 ## Team Context Profiles
 
@@ -198,18 +265,26 @@ You do NOT need a paid API key. GitHub Models API is free with any GitHub accoun
 | Anthropic API | Pay-per-use (~$3-15/MTok) | API key from console.anthropic.com | High volume, best quality |
 | OpenAI API | Pay-per-use (~$2.50-10/MTok) | API key from platform.openai.com | High volume, alternative |
 
-**Recommended starting point:** GitHub Models API (free) with `openai/gpt-4.1` or `gpt-4o`. See [docs/GITHUB_MODELS_SETUP.md](docs/GITHUB_MODELS_SETUP.md) for setup.
+**Recommended starting point:** CLI scripts (no setup) or GitHub Models API (free) with `openai/gpt-4.1`. See [docs/CLI_SETUP.md](docs/CLI_SETUP.md) or [docs/GITHUB_MODELS_SETUP.md](docs/GITHUB_MODELS_SETUP.md).
 
 ## FAQ
 
-**Can I use this without paying for an API key?**
-Yes. The GitHub Models API is free for all GitHub accounts (rate-limited to ~50-150 requests/day depending on model). Just create a Personal Access Token with `models:read` scope. See [docs/GITHUB_MODELS_SETUP.md](docs/GITHUB_MODELS_SETUP.md).
+**Can I use this without paying for anything?**
+Yes, multiple ways:
+- **CLI scripts** with `claude` CLI (if you have Claude Code) or `gh models` (free GitHub account) — no API keys, no Docker
+- **n8n workflows** with GitHub Models API (free, rate-limited to ~50-150 req/day) — needs Docker but no API keys
 
-**Can I use my Copilot subscription instead of an API key?**
-Not directly — Copilot is an IDE tool without a general-purpose REST API. However, a Copilot subscription gives you higher rate limits on the GitHub Models API, which IS a REST API this pipeline can use. So a Copilot subscription helps indirectly.
+**Can I use this without Docker?**
+Yes. Use the standalone CLI scripts (`scripts/cli-preview.sh` or `scripts/gh-models-preview.sh`). They call the AI directly from your terminal. See [docs/CLI_SETUP.md](docs/CLI_SETUP.md).
+
+**Can I use my Copilot subscription?**
+Yes! Install `gh extension install github/gh-models` and use `scripts/gh-models-preview.sh`. This runs models from the GitHub Models marketplace using your existing `gh` authentication. Copilot subscribers get higher rate limits. See [docs/CLI_SETUP.md](docs/CLI_SETUP.md#option-a-github-copilot-cli-gh-models).
+
+**Can I use Claude via GitHub Models (free)?**
+Claude models (`anthropic/claude-4-opus`, `anthropic/claude-4-sonnet`) are listed on GitHub Models but did not work reliably in our testing via the REST API. However, they may work via the `gh models run` CLI. If you want reliable Claude, use the Claude Code CLI (`scripts/cli-preview.sh`) or the Anthropic API directly.
 
 **Can I use OpenAI instead of Claude?**
-Yes. Change `AI_PROVIDER=openai` in `.env` and modify the "Call Claude API" node to use the OpenAI messages endpoint. The prompt templates work with any model.
+Yes. For n8n workflows: change `AI_MODEL=gpt-4o` in `.env`. For CLI: `./scripts/gh-models-preview.sh "..." --model openai/gpt-4.1`.
 
 **Does this work with Confluence Server (on-premise)?**
 Yes, but the API endpoints differ slightly. Confluence Server uses `/rest/api/content` without the `/wiki` prefix. Update the URL in the n8n node.

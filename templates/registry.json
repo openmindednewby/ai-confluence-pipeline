@@ -141,6 +141,20 @@
       }
     },
     {
+      "id": "service-documentation",
+      "name": "Service / App / Library Documentation",
+      "description": "Comprehensive documentation for a service, app, or library — key files, how to run, architecture, potential issues, and improvements",
+      "category": "confluence-only",
+      "prompt": "templates/confluence-only/service-documentation.md",
+      "output": {
+        "confluence": true,
+        "jira": false,
+        "confluenceTemplate": "service-documentation",
+        "confluenceLabels": ["documentation", "service"],
+        "confluenceParentPage": "Service Documentation"
+      }
+    },
+    {
       "id": "bug-fix",
       "name": "Bug Fix",
       "description": "Quick root cause analysis and fix ticket — no Confluence page needed",
