@@ -69,6 +69,14 @@
     .badge-created { background: #14532d; color: #86efac; }
     .badge-updated { background: #1e3a5f; color: #93c5fd; }
     .result-cards { margin-top: 0.75rem; }
+    .panel-section { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .panel-section-title { font-size: 0.9rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 0.5rem; }
+    .panel-section-title .pill { vertical-align: middle; }
+    .panel-global { border-left: 3px solid #6366f1; }
+    .panel-epic { border-left: 3px solid #f59e0b; }
+    .panel-task { border-left: 3px solid #22c55e; }
+    .panel-confluence-page { border-left: 3px solid #6366f1; }
+    .small-label { display: block; font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.25rem; }
   </style>
 </head>
 <body>
@@ -147,77 +155,99 @@
     <input type="file" id="md-file-input" accept=".md,.txt,.markdown" style="display:none;" />
 
     <div id="jira-panel" style="display:none;">
-      <div class="row">
-        <div class="form-group">
-          <label>Existing Epic Key/URL <span class="label-hint">(optional — leave blank to create new)</span></label>
-          <input id="epic-key" placeholder="e.g., PROJ-123 or full URL" />
-        </div>
-        <div class="form-group">
-          <label>Component <span class="label-hint">(applies to all issues)</span></label>
-          <input id="jira-component" placeholder="e.g., Backend, Frontend, Platform" />
-        </div>
-      </div>
-      <div class="row">
-        <div class="form-group">
-          <label>Default Assignee <span class="label-hint">(Jira Account ID — applies to all)</span></label>
-          <input id="jira-assignee" placeholder="Account ID, profile URL, or email" />
-        </div>
-        <div class="form-group">
-          <label>Reporter / Owner <span class="label-hint">(optional)</span></label>
-          <input id="jira-reporter" placeholder="Account ID, profile URL, or email" />
-        </div>
-      </div>
-      <p style="color:#64748b; font-size:0.75rem; margin:-0.5rem 0 0.75rem 0;">Accepts: Account ID, Atlassian profile URL (auto-extracts ID), or email (auto-resolved via Jira API).</p>
-      <div class="form-group">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <label style="margin:0;">Epic Markdown <span class="label-hint">— title, description, acceptance criteria</span></label>
-          <button class="btn-secondary" onclick="importMdFile('epic-markdown')" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
-        </div>
-        <textarea id="epic-markdown" rows="8" placeholder="# Epic Title&#10;&#10;Description of the epic...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;High&#10;&#10;## Labels&#10;notifications, backend"></textarea>
-      </div>
-      <div id="task-list">
-        <div class="form-group task-entry">
-          <div class="row" style="margin-bottom:0.35rem;">
-            <input class="task-key" placeholder="Existing task key (optional, e.g., PROJ-456)" style="flex:1;" />
-            <input class="task-assignee" placeholder="Assignee (optional — Account ID, URL, or email)" style="flex:1;" />
+
+      <div class="panel-section panel-global">
+        <div class="panel-section-title">Global Settings <span class="pill pill-local">applies to all issues</span></div>
+        <div class="row">
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label>Component</label>
+            <input id="jira-component" placeholder="e.g., Backend, Frontend, Platform" />
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label style="margin:0;">Task 1 <span class="label-hint">— becomes a Story linked to the epic</span></label>
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label>Default Assignee</label>
+            <input id="jira-assignee" placeholder="Account ID, profile URL, or email" />
+          </div>
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label>Reporter / Owner</label>
+            <input id="jira-reporter" placeholder="Account ID, profile URL, or email" />
+          </div>
+        </div>
+        <p style="color:#64748b; font-size:0.7rem; margin:0;">Accepts: Jira Account ID, Atlassian profile URL (auto-extracts), or email (auto-resolved).</p>
+      </div>
+
+      <div class="panel-section panel-epic">
+        <div class="panel-section-title">Epic</div>
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label>Existing Epic Key/URL <span class="label-hint">(leave blank to create new)</span></label>
+          <input id="epic-key" placeholder="e.g., PROJ-123 or https://company.atlassian.net/browse/PROJ-123" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+            <label style="margin:0;">Epic Content <span class="label-hint">— markdown with title, description, acceptance criteria</span></label>
+            <button class="btn-secondary" onclick="importMdFile('epic-markdown')" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
+          </div>
+          <textarea id="epic-markdown" rows="8" placeholder="# Epic Title&#10;&#10;Description of the epic...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;High&#10;&#10;## Labels&#10;notifications, backend"></textarea>
+        </div>
+      </div>
+
+      <div id="task-list">
+        <div class="panel-section panel-task task-entry">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1px solid #334155;">
+            <div class="panel-section-title" style="margin:0; padding:0; border:0;">Task 1 <span class="pill" style="background:#14532d; color:#86efac;">Story</span></div>
             <div>
               <button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
               <button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button>
             </div>
           </div>
-          <textarea class="task-markdown" rows="6" placeholder="# Task Title&#10;&#10;Task description...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;Medium&#10;&#10;## Estimate&#10;M&#10;&#10;## Component&#10;backend"></textarea>
+          <div class="row" style="margin-bottom:0.75rem;">
+            <div style="flex:1;">
+              <span class="small-label">Existing Task Key</span>
+              <input class="task-key" placeholder="e.g., PROJ-456 (leave blank to create new)" />
+            </div>
+            <div style="flex:1;">
+              <span class="small-label">Assignee Override</span>
+              <input class="task-assignee" placeholder="Account ID, URL, or email (optional)" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <span class="small-label">Task Content — markdown</span>
+            <textarea class="task-markdown" rows="6" placeholder="# Task Title&#10;&#10;Task description...&#10;&#10;## Acceptance Criteria&#10;- Given X, when Y, then Z&#10;&#10;## Priority&#10;Medium&#10;&#10;## Estimate&#10;M&#10;&#10;## Component&#10;backend"></textarea>
+          </div>
         </div>
       </div>
-      <button class="btn-secondary" onclick="addTask()" style="margin-top:0.5rem; font-size:0.8rem;">+ Add Task</button>
+      <button class="btn-secondary" onclick="addTask()" style="margin-top:0.25rem; font-size:0.8rem;">+ Add Task</button>
     </div>
 
     <div id="confluence-panel" style="display:none;">
-      <div class="form-group">
-        <label>Existing Page ID/URL <span class="label-hint">(optional — leave blank to create new)</span></label>
-        <input id="confluence-page-id" placeholder="e.g., 123456789 or https://company.atlassian.net/wiki/spaces/SPACE/pages/123456789/Title" />
+
+      <div class="panel-section panel-confluence-page">
+        <div class="panel-section-title">Page Settings</div>
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label>Existing Page ID/URL <span class="label-hint">(leave blank to create new)</span></label>
+          <input id="confluence-page-id" placeholder="e.g., 123456789 or full Confluence page URL" />
+        </div>
+        <div class="row">
+          <div class="form-group" style="margin-bottom:0.5rem;">
+            <label>Title Override <span class="label-hint">(uses # heading if blank)</span></label>
+            <input id="confluence-title" placeholder="Leave blank to use heading from markdown" />
+          </div>
+          <div class="form-group" style="margin-bottom:0.5rem;">
+            <label>Labels <span class="label-hint">(comma-separated)</span></label>
+            <input id="confluence-labels" placeholder="e.g., docs, api, team-platform" />
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <label style="margin:0;">Page Markdown <span class="label-hint">— main page content</span></label>
+
+      <div class="panel-section panel-confluence-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <div class="panel-section-title" style="margin:0; padding:0; border:0;">Main Page Content</div>
           <button class="btn-secondary" onclick="importMdFile('page-markdown')" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button>
         </div>
-        <textarea id="page-markdown" rows="8" placeholder="# Page Title&#10;&#10;Introduction content...&#10;&#10;## Section Heading&#10;&#10;Section content with **bold**, *italic*, `code`, tables, lists..."></textarea>
+        <textarea id="page-markdown" rows="8" placeholder="# Page Title&#10;&#10;Introduction content...&#10;&#10;## Section Heading&#10;&#10;Section content with **bold**, *italic*, `code`, tables, lists..." style="margin-bottom:0;"></textarea>
       </div>
-      <div class="row">
-        <div class="form-group">
-          <label>Title Override <span class="label-hint">(optional — uses # heading if blank)</span></label>
-          <input id="confluence-title" placeholder="Leave blank to use heading from markdown" />
-        </div>
-        <div class="form-group">
-          <label>Labels <span class="label-hint">(comma-separated, optional)</span></label>
-          <input id="confluence-labels" placeholder="e.g., docs, api, team-platform" />
-        </div>
-      </div>
+
       <div id="section-list"></div>
-      <button class="btn-secondary" onclick="addSection()" style="margin-top:0.5rem; font-size:0.8rem;">+ Add Section</button>
+      <button class="btn-secondary" onclick="addSection()" style="margin-top:0.25rem; font-size:0.8rem;">+ Add Section</button>
     </div>
 
     <div class="actions">
@@ -324,23 +354,25 @@
     function addTask() {
       taskCount++;
       const div = document.createElement('div');
-      div.className = 'form-group task-entry';
-      div.innerHTML = '<div class="row" style="margin-bottom:0.35rem;">' +
-        '<input class="task-key" placeholder="Existing task key (optional, e.g., PROJ-456)" style="flex:1;" />' +
-        '<input class="task-assignee" placeholder="Assignee (optional — Account ID, URL, or email)" style="flex:1;" /></div>' +
-        '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-        '<label style="margin:0;">Task ' + taskCount + ' <span class="label-hint">— becomes a Story linked to the epic</span></label>' +
+      div.className = 'panel-section panel-task task-entry';
+      div.innerHTML =
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1px solid #334155;">' +
+        '<div class="panel-section-title" style="margin:0; padding:0; border:0;">Task ' + taskCount + ' <span class="pill" style="background:#14532d; color:#86efac;">Story</span></div>' +
         '<div><button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button> ' +
         '<button class="btn-secondary" onclick="removeTask(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div></div>' +
-        '<textarea class="task-markdown" rows="6" placeholder="# Task Title\n\nTask description...\n\n## Acceptance Criteria\n- ...\n\n## Estimate\nM\n\n## Component\nbackend"></textarea>';
+        '<div class="row" style="margin-bottom:0.75rem;">' +
+        '<div style="flex:1;"><span class="small-label">Existing Task Key</span><input class="task-key" placeholder="e.g., PROJ-456 (leave blank to create new)" /></div>' +
+        '<div style="flex:1;"><span class="small-label">Assignee Override</span><input class="task-assignee" placeholder="Account ID, URL, or email (optional)" /></div></div>' +
+        '<div class="form-group" style="margin-bottom:0;"><span class="small-label">Task Content — markdown</span>' +
+        '<textarea class="task-markdown" rows="6" placeholder="# Task Title\n\nTask description...\n\n## Acceptance Criteria\n- ...\n\n## Estimate\nM\n\n## Component\nbackend"></textarea></div>';
       document.getElementById('task-list').appendChild(div);
     }
 
     function removeTask(btn) {
       btn.closest('.task-entry').remove();
       document.querySelectorAll('#task-list .task-entry').forEach((el, i) => {
-        const lbl = el.querySelector('label');
-        lbl.innerHTML = 'Task ' + (i + 1) + ' <span class="label-hint">— becomes a Story linked to the epic</span>';
+        const title = el.querySelector('.panel-section-title');
+        if (title) title.innerHTML = 'Task ' + (i + 1) + ' <span class="pill" style="background:#14532d; color:#86efac;">Story</span>';
       });
       taskCount = document.querySelectorAll('#task-list .task-entry').length;
     }
@@ -349,20 +381,21 @@
     function addSection() {
       sectionCount++;
       const div = document.createElement('div');
-      div.className = 'form-group section-entry';
-      div.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-        '<label style="margin:0;">Section ' + sectionCount + ' <span class="label-hint">— appended to the page</span></label>' +
+      div.className = 'panel-section panel-confluence-page section-entry';
+      div.innerHTML =
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">' +
+        '<div class="panel-section-title" style="margin:0; padding:0; border:0;">Section ' + sectionCount + '</div>' +
         '<div><button class="btn-secondary" onclick="importMdToSibling(this)" style="padding:0.2rem 0.6rem; font-size:0.7rem;">Import .md</button> ' +
         '<button class="btn-secondary" onclick="removeSection(this)" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Remove</button></div></div>' +
-        '<textarea class="section-markdown" rows="6" placeholder="# Section Title\n\nSection content..."></textarea>';
+        '<textarea class="section-markdown" rows="6" placeholder="# Section Title\n\nSection content..." style="margin-bottom:0;"></textarea>';
       document.getElementById('section-list').appendChild(div);
     }
 
     function removeSection(btn) {
       btn.closest('.section-entry').remove();
       document.querySelectorAll('#section-list .section-entry').forEach((el, i) => {
-        const lbl = el.querySelector('label');
-        lbl.innerHTML = 'Section ' + (i + 1) + ' <span class="label-hint">— appended to the page</span>';
+        const title = el.querySelector('.panel-section-title');
+        if (title) title.textContent = 'Section ' + (i + 1);
       });
       sectionCount = document.querySelectorAll('#section-list .section-entry').length;
     }
