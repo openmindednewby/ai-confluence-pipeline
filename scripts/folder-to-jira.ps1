@@ -84,7 +84,7 @@ function Parse-Markdown {
     $priority = Get-Field "Priority"
     if (-not $priority) { $priority = if ($env:JIRA_DEFAULT_PRIORITY) { $env:JIRA_DEFAULT_PRIORITY } else { "Medium" } }
 
-    $labels = @("ai-generated")
+    $labels = @("n8n-pipeline-generated")
     $labelsStr = Get-Field "Labels"
     if ($labelsStr) { $labels += ($labelsStr -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
     $component = Get-Field "Component"
