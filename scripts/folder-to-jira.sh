@@ -154,9 +154,9 @@ parse_markdown() {
     criteria_json=$(echo "$criteria" | jq -R -s 'split("\n") | map(select(length > 0))')
   fi
 
-  local labels_json='["ai-generated"]'
+  local labels_json='["n8n-pipeline-generated"]'
   if [ -n "$labels_str" ]; then
-    labels_json=$(echo "$labels_str" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R -s 'split("\n") | map(select(length > 0)) + ["ai-generated"]')
+    labels_json=$(echo "$labels_str" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R -s 'split("\n") | map(select(length > 0)) + ["n8n-pipeline-generated"]')
   fi
   if [ -n "$component" ]; then
     labels_json=$(echo "$labels_json" | jq --arg c "$component" '. + [$c]')

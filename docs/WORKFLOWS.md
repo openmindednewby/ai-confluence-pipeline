@@ -360,7 +360,7 @@ Only the `# Title` is required. All `##` sections are optional:
 | `## Priority` | Jira priority field | `Medium` (from `.env`) |
 | `## Estimate` | Added as label | None |
 | `## Component` | Added as label | None |
-| `## Labels` | Jira labels (comma-separated) | `ai-generated` |
+| `## Labels` | Jira labels (comma-separated) | `n8n-pipeline-generated` |
 
 **Requires:** `.env` with `JIRA_*` variables + `jq`
 
@@ -412,7 +412,7 @@ Markdown is converted to Confluence storage format HTML (headings, tables, code 
 | `--section` | Additional file to append (repeatable) | None |
 | `--title` | Override page title | Extracted from first `# heading` |
 | `--parent` | Confluence parent page ID (for nesting) | From `.env` |
-| `--labels` | Comma-separated labels | `ai-generated` |
+| `--labels` | Comma-separated labels | `n8n-pipeline-generated` |
 | `--dry-run` | Preview without creating | Off |
 
 **Requires:** `.env` with `CONFLUENCE_*` variables + `jq` + `node` (for markdown→HTML)

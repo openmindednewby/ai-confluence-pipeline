@@ -155,7 +155,7 @@ CONF_BODY=$(jq -n \
     metadata: {
       labels: [
         { prefix: "global", name: "technical-analysis" },
-        { prefix: "global", name: "ai-generated" }
+        { prefix: "global", name: "n8n-pipeline-generated" }
       ]
     }
   }')
@@ -218,7 +218,7 @@ if [ "$CREATE_JIRA" = true ]; then
           },
           issuetype: { name: $issuetype },
           priority: { name: $priority },
-          labels: ["ai-generated"]
+          labels: ["n8n-pipeline-generated"]
         }
       }')
 

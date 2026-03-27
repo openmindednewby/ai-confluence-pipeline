@@ -48,7 +48,7 @@ PAGE_FILE=""
 SECTION_FILES=()
 TITLE_OVERRIDE=""
 PARENT_PAGE_ID="${CONFLUENCE_PARENT_PAGE_ID:-}"
-LABELS="ai-generated"
+LABELS="n8n-pipeline-generated"
 DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
@@ -70,7 +70,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --labels)
-      LABELS="$2,ai-generated"
+      LABELS="$2,n8n-pipeline-generated"
       shift 2
       ;;
     --dry-run)

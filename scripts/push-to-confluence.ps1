@@ -90,7 +90,7 @@ $confBody = @{
     metadata = @{
         labels = @(
             @{ prefix = "global"; name = "technical-analysis" },
-            @{ prefix = "global"; name = "ai-generated" }
+            @{ prefix = "global"; name = "n8n-pipeline-generated" }
         )
     }
 } | ConvertTo-Json -Depth 10
@@ -138,7 +138,7 @@ if ($CreateJira) {
                 }
                 issuetype = @{ name = $issueType }
                 priority  = @{ name = ($task.priority ?? "Medium") }
-                labels    = @("ai-generated")
+                labels    = @("n8n-pipeline-generated")
             }
         } | ConvertTo-Json -Depth 10
 

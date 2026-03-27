@@ -16,7 +16,7 @@ param(
     [string[]]$Sections = @(),
     [string]$Title = "",
     [string]$ParentPageId = "",
-    [string]$Labels = "ai-generated",
+    [string]$Labels = "n8n-pipeline-generated",
     [switch]$DryRun
 )
 
