@@ -8,6 +8,8 @@ Built for **tech leads** who spend too much time writing technical docs and crea
 Feature Description → AI Analysis → Confluence Page → Jira Tasks
 ```
 
+![AI Confluence Pipeline UI](docs/screenshot.png)
+
 ## What It Does
 
 1. You describe a feature, bug, or research spike
