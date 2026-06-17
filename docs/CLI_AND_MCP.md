@@ -23,8 +23,10 @@ npm run build   # or rebuild manually after changes
 
 | Env var | Default | Meaning |
 |---------|---------|---------|
-| `WEBHOOK_URL` | `http://localhost:10353/webhook` | n8n webhook base URL (no trailing slash) |
-| `ACP_BACKEND` | `n8n` | `n8n` (Stage 1). `direct` = call Atlassian REST directly — **not yet implemented (Stage 2)** |
+| `WEBHOOK_URL` | `http://localhost:10353/webhook` | n8n webhook base URL (no trailing slash) — used by the **forward** publish flow |
+| `ACP_BACKEND` | `n8n` | Backend for the **forward** publish flow. `n8n` (Stage 1). `direct` reserved for Stage 2 |
+| `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` | — | Required by the **reverse** `pull-jira` flow (direct REST, Basic auth) |
+| `CONFLUENCE_BASE_URL` / `CONFLUENCE_EMAIL` / `CONFLUENCE_API_TOKEN` | — | Required by the **reverse** `pull-confluence` flow (direct REST, Basic auth) |
 
 ## CLI
 
@@ -44,6 +46,26 @@ acp confluence --page overview.md --page-id 123456 --dry-run  # UPDATE existing 
 `acp` and `ai-confluence-pipeline` are the same binary. `--dry-run` prints the resolved payload
 without contacting n8n.
 
+### Reverse: Jira / Confluence → markdown folder
+
+The opposite direction. Give an epic key/URL (or Confluence page id/URL) and a target directory;
+the issue/page tree is fetched via **direct REST** (no n8n), converted to markdown, and written as a
+round-trippable folder (`epic.md` + `task-*.md` + nested sub-task folders, or `page.md` + nested
+page folders), plus an `acp-pull.json` manifest carrying keys/ids, urls, status and parent links.
+
+```bash
+# Jira: pull an Epic + its Stories + Sub-tasks (recursive by default)
+acp pull-jira PROJ-12 ./out
+acp pull-jira https://you.atlassian.net/browse/PROJ-12 ./out --no-recursive --force
+
+# Confluence: pull a page + its descendant page tree
+acp pull-confluence 123456 ./out
+acp pull-confluence https://you.atlassian.net/wiki/spaces/T/pages/123456/Title ./out --force
+```
+
+Re-publish a pulled folder with the forward commands: `acp jira --epic ./out/epic.md --task ./out/task-*.md`.
+Bash/PowerShell wrappers: `scripts/jira-to-folder.sh`, `scripts/confluence-to-folder.sh` (+ `.ps1`).
+
 ## MCP server (for Claude / agents)
 
 The server exposes two tools that take **raw markdown strings** (what an agent has in memory):
@@ -52,6 +74,8 @@ The server exposes two tools that take **raw markdown strings** (what an agent h
 |------|---------|
 | `markdown_to_jira` | Create/update a Jira Epic + linked Stories. Args: `epicMarkdown`, `taskMarkdowns[]`, `epicKey?`, `taskKeys[]?`, `component?`, `assignee?`, `reporter?`, … |
 | `markdown_to_confluence` | Create/update a Confluence page. Args: `pageMarkdown`, `title?`, `sectionMarkdowns[]?`, `pageId?`, `parentPageId?`, `labels[]?` |
+| `jira_to_markdown` | **Reverse.** Pull a Jira Epic (+ Stories + Sub-tasks) into a markdown folder. Args: `epic`, `dir`, `recursive?`, `force?` (direct REST, needs `JIRA_*` in `.env`) |
+| `confluence_to_markdown` | **Reverse.** Pull a Confluence page (+ descendant pages) into a markdown folder. Args: `page`, `dir`, `recursive?`, `force?` (direct REST, needs `CONFLUENCE_*` in `.env`) |
 
 ### Register in Claude Code
 
@@ -107,6 +131,10 @@ Tables, code blocks, task lists and links are converted to ADF by the n8n workfl
 
 ## Roadmap
 
-- **Stage 2:** `ACP_BACKEND=direct` — port the n8n `mdToAdf` converter to TS and call Atlassian REST
-  directly, so agents don't need n8n/Docker running.
+- **Reverse pipeline (done):** `pull-jira` / `pull-confluence` (+ `jira_to_markdown` /
+  `confluence_to_markdown` MCP tools) pull issues/pages into markdown via direct REST.
+- **Stage 2 (forward direct):** `ACP_BACKEND=direct` — port the n8n `mdToAdf` converter to TS and
+  call Atlassian REST directly for **publishing**, so agents don't need n8n/Docker running.
+- **Folder re-publish:** an `acp push-folder` that reads `acp-pull.json` and updates the whole
+  tree in place (incl. sub-tasks / child pages), the recursive complement to today's flat re-publish.
 - Deferred: `run_analysis` tool (AI generation via the n8n preview pipeline).

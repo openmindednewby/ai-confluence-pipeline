@@ -21,7 +21,7 @@
     "start:mcp": "node dist/mcp/server.js",
     "deploy:workflows": "node scripts/deploy-workflows.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test"
+    "test": "npm run build && node --test \"test/**/*.test.js\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",

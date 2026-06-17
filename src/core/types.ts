@@ -70,3 +70,52 @@ export interface ConfluencePublishResult {
   page: { id?: string; title?: string; url?: string; action?: string };
   [key: string]: unknown;
 }
+
+/* ── Reverse pipeline (pull): Jira / Confluence → markdown folder ───────────── */
+
+/** Options for a reverse pull. */
+export interface PullOptions {
+  /** Recurse into child issues / child pages (default true). */
+  recursive?: boolean;
+  /** Overwrite existing files in the target dir (default false → error if non-empty). */
+  force?: boolean;
+}
+
+/** One Jira issue written to disk during a pull. */
+export interface PulledIssue {
+  /** Path relative to the target dir, e.g. `epic.md` or `task-01-foo/subtask-01-bar.md`. */
+  file: string;
+  key: string;
+  /** `epic` for the root, otherwise the Jira issue-type name (Story, Sub-task, …). */
+  type: string;
+  title: string;
+  parentKey: string | null;
+  url: string;
+  status: string | null;
+}
+
+/** Result of a Jira pull: the root plus every descendant written, and the manifest path. */
+export interface JiraPullResult {
+  root: PulledIssue;
+  issues: PulledIssue[];
+  manifestPath: string;
+  dir: string;
+}
+
+/** One Confluence page written to disk during a pull. */
+export interface PulledPage {
+  /** Directory relative to the target dir holding this page's `page.md` (`.` for the root). */
+  dir: string;
+  pageId: string;
+  title: string;
+  parentPageId: string | null;
+  url: string;
+}
+
+/** Result of a Confluence pull: the root plus every descendant written, and the manifest path. */
+export interface ConfluencePullResult {
+  root: PulledPage;
+  pages: PulledPage[];
+  manifestPath: string;
+  dir: string;
+}

@@ -9,8 +9,9 @@ import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
 import { publishJira } from '../core/jira.js';
 import { publishConfluence } from '../core/confluence.js';
+import { pullJira, pullConfluence } from '../core/pull.js';
 import { getConfig } from '../core/config.js';
-import type { JiraPublishResult } from '../core/types.js';
+import type { JiraPublishResult, JiraPullResult, ConfluencePullResult } from '../core/types.js';
 
 function read(path: string): string {
   try {
@@ -118,6 +119,52 @@ program
       fail(err);
     }
   });
+
+program
+  .command('pull-jira')
+  .description('Reverse: pull a Jira Epic (+ stories + sub-tasks) into a markdown folder.')
+  .argument('<epic>', 'Epic key (e.g. PROJ-12) or browse URL')
+  .argument('<dir>', 'target directory to write the markdown folder into')
+  .option('--no-recursive', 'pull only the epic, not its children')
+  .option('--force', 'overwrite a non-empty target directory', false)
+  .action(async (epic: string, dir: string, opts) => {
+    try {
+      process.stdout.write(`\n  Jira -> Markdown\n  Epic: ${epic} -> ${dir}\n`);
+      const result = await pullJira(epic, dir, { recursive: opts.recursive, force: opts.force });
+      printJiraPullResult(result);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+program
+  .command('pull-confluence')
+  .description('Reverse: pull a Confluence page (+ descendant pages) into a markdown folder.')
+  .argument('<page>', 'Page id (e.g. 123456) or page URL')
+  .argument('<dir>', 'target directory to write the markdown folder into')
+  .option('--no-recursive', 'pull only the page, not its children')
+  .option('--force', 'overwrite a non-empty target directory', false)
+  .action(async (page: string, dir: string, opts) => {
+    try {
+      process.stdout.write(`\n  Confluence -> Markdown\n  Page: ${page} -> ${dir}\n`);
+      const result = await pullConfluence(page, dir, { recursive: opts.recursive, force: opts.force });
+      printConfluencePullResult(result);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+function printJiraPullResult(result: JiraPullResult): void {
+  process.stdout.write(`\n  Done. ${result.issues.length} issue(s) written to ${result.dir}\n`);
+  result.issues.forEach((i) => process.stdout.write(`  [${i.key}] ${i.type}: ${i.file}\n`));
+  process.stdout.write(`  Manifest: ${result.manifestPath}\n`);
+}
+
+function printConfluencePullResult(result: ConfluencePullResult): void {
+  process.stdout.write(`\n  Done. ${result.pages.length} page(s) written to ${result.dir}\n`);
+  result.pages.forEach((p) => process.stdout.write(`  [${p.pageId}] ${p.title} -> ${p.dir}/page.md\n`));
+  process.stdout.write(`  Manifest: ${result.manifestPath}\n`);
+}
 
 function printJiraResult(result: JiraPublishResult): void {
   process.stdout.write(`\n  Done.\n`);
