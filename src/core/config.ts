@@ -48,3 +48,46 @@ export function getConfig(): AcpConfig {
   const webhookUrl = (process.env.WEBHOOK_URL || DEFAULT_WEBHOOK_URL).replace(/\/+$/, '');
   return { backend, webhookUrl };
 }
+
+/** Atlassian Basic-auth credentials shared by Jira and Confluence direct-REST access. */
+export interface AtlassianCreds {
+  /** Site base URL, e.g. `https://yourcompany.atlassian.net` (no trailing slash). */
+  baseUrl: string;
+  /** Account email used for the Basic-auth pair. */
+  email: string;
+  /** API token used for the Basic-auth pair. */
+  apiToken: string;
+}
+
+/** Build the `Authorization: Basic …` header value from email + API token. */
+export function basicAuthHeader(creds: AtlassianCreds): string {
+  const token = Buffer.from(`${creds.email}:${creds.apiToken}`).toString('base64');
+  return `Basic ${token}`;
+}
+
+/** Resolve Jira REST credentials from `.env`. Throws a helpful error if any are missing. */
+export function getJiraCreds(): AtlassianCreds {
+  ensureEnvLoaded();
+  return requireCreds('JIRA', process.env.JIRA_BASE_URL, process.env.JIRA_EMAIL, process.env.JIRA_API_TOKEN);
+}
+
+/** Resolve Confluence REST credentials from `.env`. Throws a helpful error if any are missing. */
+export function getConfluenceCreds(): AtlassianCreds {
+  ensureEnvLoaded();
+  return requireCreds(
+    'CONFLUENCE',
+    process.env.CONFLUENCE_BASE_URL,
+    process.env.CONFLUENCE_EMAIL,
+    process.env.CONFLUENCE_API_TOKEN,
+  );
+}
+
+/** Validate that all three credential parts are present, returning a normalised creds object. */
+function requireCreds(prefix: string, baseUrl?: string, email?: string, apiToken?: string): AtlassianCreds {
+  if (!baseUrl || !email || !apiToken) {
+    throw new Error(
+      `${prefix}_BASE_URL, ${prefix}_EMAIL, and ${prefix}_API_TOKEN must be set in .env for direct REST access.`,
+    );
+  }
+  return { baseUrl: baseUrl.replace(/\/+$/, ''), email, apiToken };
+}

@@ -1,0 +1,93 @@
+# Task: Reverse pipeline — Jira / Confluence → markdown folder
+
+## Goal
+The opposite of the existing publish flow. Given an **epic key/URL** (or a **Confluence page
+id/URL**) plus a **target directory**, fetch the issue/page tree, convert it to markdown, and
+write a round-trippable folder so the existing forward commands (`acp jira` / `acp confluence`)
+can push it back.
+
+## Decisions (locked with owner)
+- **Backend:** Direct REST. Implements the long-reserved `ACP_BACKEND=direct` read path in TS
+  core, using the existing `.env` `JIRA_*` / `CONFLUENCE_*` creds (Basic auth). No n8n round-trip,
+  no AI (reads only), fully unit-testable.
+- **Surfaces (all three, sharing one core):**
+  - CLI: `acp pull-jira <epicRef> <dir>` and `acp pull-confluence <pageRef> <dir>`.
+  - MCP tools: `jira_to_markdown`, `confluence_to_markdown`.
+  - Bash: `scripts/jira-to-folder.sh`, `scripts/confluence-to-folder.sh` (+ `.ps1`).
+- **Fidelity:** Round-trippable — emit the exact forward markdown shape (`# Title`, description,
+  `## Acceptance Criteria` / `## Priority` / `## Estimate` / `## Component` / `## Labels`). Extra
+  metadata (key, status, assignee, url, parent) is preserved in a sidecar manifest, not the body.
+- **Scope:** Fully recursive. Jira: epic → stories → sub-tasks. Confluence: page + descendant tree
+  (nested subfolders).
+
+## Folder layout (round-trip target)
+Jira (`<dir>`):
+```
+epic.md                       # the epic, forward format
+task-01-<slug>.md             # story (parent = epic)
+task-01-<slug>/               # only if that story has sub-tasks
+  subtask-01-<slug>.md
+task-02-<slug>.md
+acp-pull.json                 # manifest: ordered [{file, key, type, parentKey, url, status}]
+```
+Confluence (`<dir>`):
+```
+page.md                       # root page, forward format
+01-<child-slug>/
+  page.md
+  01-<grandchild-slug>/
+    page.md
+acp-pull.json                 # manifest: [{dir, pageId, parentPageId, url, title}]
+```
+
+## Reference REST endpoints
+- Jira issue: `GET /rest/api/3/issue/{key}?fields=summary,description,labels,priority,issuetype,components,parent,subtasks,status`
+  (`description` is ADF).
+- Jira children of epic: `GET /rest/api/3/search?jql=parent={KEY}` (stories), then `parent={STORY}` (sub-tasks),
+  or walk `fields.subtasks[]`.
+- Confluence page: `GET /wiki/rest/api/content/{id}?expand=body.storage,version,title,space`
+  (`body.storage.value` is storage-format XHTML).
+- Confluence children: `GET /wiki/rest/api/content/{id}/child/page?expand=body.storage` (paged).
+
+## Structure (new files)
+```
+src/core/
+  atlassian.ts        # direct REST client (Basic auth from .env): getIssue, searchChildren, getPage, getChildPages
+  adfToMarkdown.ts    # ADF doc -> markdown
+  storageToMarkdown.ts# Confluence storage XHTML -> markdown
+  pull.ts             # pullJira(epicRef, dir, opts) / pullConfluence(pageRef, dir, opts) — fetch, convert, write tree + manifest
+  config.ts           # +jira/+confluence cred blocks
+  types.ts            # +pull input/result types
+src/cli/index.ts      # + pull-jira / pull-confluence commands
+src/mcp/server.ts     # + jira_to_markdown / confluence_to_markdown tools
+scripts/              # jira-to-folder.sh + .ps1, confluence-to-folder.sh + .ps1
+```
+
+## Progress
+- [x] config: jira/confluence cred blocks (`getJiraCreds`/`getConfluenceCreds`/`basicAuthHeader`)
+- [x] core: atlassian REST client (`atlassian.ts` — getIssue/getChildIssues/getPage/getChildPages + ref parsers, paged)
+- [x] core: adfToMarkdown converter (`adfToMarkdown.ts` — para/heading/lists/code/table/quote/marks/links, graceful unknowns)
+- [x] core: storageToMarkdown converter (`storageToMarkdown.ts` — tolerant XHTML tokenizer; code macro/task-list/tables/lists; strips footer; entity decode)
+- [x] core: pull orchestration (`pull.ts` — recursive, forward-format emit, nested folders, `acp-pull.json` manifest, non-empty-dir guard)
+- [x] CLI: `acp pull-jira <epic> <dir>` / `acp pull-confluence <page> <dir>` (`--no-recursive`, `--force`)
+- [x] MCP: `jira_to_markdown` / `confluence_to_markdown` tools
+- [x] bash + ps1 scripts (`jira-to-folder` / `confluence-to-folder`, wrap the CLI = one converter source of truth)
+- [x] unit tests: 17 converter/helper + 4 integration (mock REST server → real folder tree/manifest) = **21 pass**
+- [x] docs: README (reverse section + roadmap) + docs/CLI_AND_MCP.md (config, CLI, MCP table, roadmap)
+- [x] build clean, typecheck clean, `npm test` 21/21
+
+## Notes / decisions made during build
+- Reused the repo's reserved `ACP_BACKEND=direct` rationale: reverse reads go **direct REST** (no n8n, no AI).
+- Bash/PS1 scripts **delegate to the CLI** rather than reimplementing ADF→md in jq (would be a second,
+  drifting copy of the converter). Single source of truth = `src/core`.
+- Round-trip + recursive reconciled via nested folders + the `acp-pull.json` manifest. Flat re-publish
+  (epic + stories) works today via existing `acp jira`; full recursive re-publish (sub-tasks/child pages)
+  is the proposed follow-up `acp push-folder` (logged in roadmap).
+- `test` script now builds then runs `node --test "test/**/*.test.js"` against compiled dist (plain-JS tests,
+  no TS-in-node loader friction).
+
+## Remaining (not done — needs live Atlassian)
+- [ ] End-to-end run against a real Jira/Confluence sandbox (verified only against a mock REST server)
+- [ ] `acp push-folder` recursive re-publish (manifest-driven) — roadmap
+
+## Status: CODE-COMPLETE (build/typecheck/tests green; live Atlassian run pending creds)

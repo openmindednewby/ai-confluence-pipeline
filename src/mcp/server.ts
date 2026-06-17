@@ -14,6 +14,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { publishJira } from '../core/jira.js';
 import { publishConfluence } from '../core/confluence.js';
+import { pullJira, pullConfluence } from '../core/pull.js';
 
 const server = new McpServer({ name: 'ai-confluence-pipeline', version: '0.1.0' });
 
@@ -102,6 +103,72 @@ server.registerTool(
       return {
         content: [{ type: 'text' as const, text: `Confluence page ${action}: ${url}` }],
         structuredContent: result as Record<string, unknown>,
+      };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'jira_to_markdown',
+  {
+    title: 'Jira to Markdown (Epic → folder)',
+    description:
+      'Reverse of markdown_to_jira. Pull a Jira Epic and (recursively) its Stories and Sub-tasks ' +
+      'into a round-trippable markdown folder (epic.md + task-*.md + nested sub-task folders + an ' +
+      'acp-pull.json manifest). Read-only; uses JIRA_* creds from .env via direct REST.',
+    inputSchema: {
+      epic: z.string().describe('Epic key (e.g. PROJ-12) or a /browse/PROJ-12 URL.'),
+      dir: z.string().describe('Target directory to write the markdown folder into.'),
+      recursive: z.boolean().optional().describe('Pull child issues too (default true).'),
+      force: z.boolean().optional().describe('Overwrite a non-empty target directory (default false).'),
+    },
+  },
+  async (args) => {
+    try {
+      const result = await pullJira(args.epic, args.dir, { recursive: args.recursive, force: args.force });
+      const lines = [
+        `Pulled ${result.issues.length} issue(s) to ${result.dir}`,
+        ...result.issues.map((i) => `[${i.key}] ${i.type}: ${i.file}`),
+        `Manifest: ${result.manifestPath}`,
+      ];
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+        structuredContent: result as unknown as Record<string, unknown>,
+      };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'confluence_to_markdown',
+  {
+    title: 'Confluence to Markdown (page → folder)',
+    description:
+      'Reverse of markdown_to_confluence. Pull a Confluence page and (recursively) its descendant ' +
+      'pages into a round-trippable markdown folder (page.md + nested subfolders + an acp-pull.json ' +
+      'manifest). Read-only; uses CONFLUENCE_* creds from .env via direct REST.',
+    inputSchema: {
+      page: z.string().describe('Page id (e.g. 123456) or a Confluence page URL.'),
+      dir: z.string().describe('Target directory to write the markdown folder into.'),
+      recursive: z.boolean().optional().describe('Pull child pages too (default true).'),
+      force: z.boolean().optional().describe('Overwrite a non-empty target directory (default false).'),
+    },
+  },
+  async (args) => {
+    try {
+      const result = await pullConfluence(args.page, args.dir, { recursive: args.recursive, force: args.force });
+      const lines = [
+        `Pulled ${result.pages.length} page(s) to ${result.dir}`,
+        ...result.pages.map((p) => `[${p.pageId}] ${p.title} -> ${p.dir}/page.md`),
+        `Manifest: ${result.manifestPath}`,
+      ];
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+        structuredContent: result as unknown as Record<string, unknown>,
       };
     } catch (err) {
       return errorResult(err);
