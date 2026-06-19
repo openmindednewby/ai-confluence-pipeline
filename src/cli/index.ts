@@ -317,6 +317,36 @@ traceCmd
   });
 
 traceCmd
+  .command('gaps')
+  .description('Implementation gap report: which requirements are not in code, coded-but-untested, or unverified.')
+  .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
+  .option('--fail-on-gap', 'exit 1 if any requirement is not referenced in code', false)
+  .action(async (opts) => {
+    try {
+      const configPath = resolve(opts.config);
+      const config = loadTraceConfig(configPath);
+      const report = await runTrace(config, dirname(configPath), { save: false });
+      const scanned = report.requirements.some((r) => r.inCode !== null);
+      const notInCode = report.requirements.filter((r) => r.inCode === false);
+      const codedNoTest = report.requirements.filter((r) => r.inCode === true && r.tests.length === 0);
+      const codedNotVerified = report.requirements.filter((r) => r.inCode === true && r.tests.length > 0 && r.state !== 'verified');
+
+      process.stdout.write('\n  Implementation gaps\n');
+      if (!scanned) process.stdout.write('  (no `code` globs configured — add scope.code to scan implementation code)\n');
+      const group = (label: string, rows: typeof report.requirements) => {
+        process.stdout.write(`\n  ${label} (${rows.length})\n`);
+        rows.forEach((r) => process.stdout.write(`    [${r.key}] ${r.title}\n`));
+      };
+      if (scanned) group('📋 Not referenced in code (not started)', notInCode);
+      group('🧪 In code but no test', codedNoTest);
+      group('❌ Tested but not verified', codedNotVerified);
+      process.exit(opts.failOnGap && notInCode.length > 0 ? 1 : 0);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+traceCmd
   .command('pull-requirements')
   .description('Gather requirements from ALL configured sources (Jira/Confluence/markdown/issues/command) into one local folder.')
   .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)

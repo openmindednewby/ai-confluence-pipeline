@@ -20,6 +20,7 @@ import { renderMarkdown } from './report/markdown.js';
 import { execCommands, type CommandRun, type RunnableSpec } from './runner.js';
 import { applyDiff, loadBaseline, pruneRuns, saveRun } from './history.js';
 import { markStale } from './stale.js';
+import { markImplemented, scanCodeKeys } from './codeScan.js';
 import { DEFAULT_KEY_PATTERN, readMappingFile, scanTestSources, type TestSourceSpec } from './testScanner.js';
 import { globFiles } from './glob.js';
 import type { Requirement, TestRef, TraceReport } from './types.js';
@@ -157,6 +158,10 @@ export async function runTraceDetailed(
     project: config.project,
   });
   markStale(report, repoDir);
+
+  // 3b. Code-side gap: which requirements are referenced in implementation code (@KEY tags).
+  const codeGlobs = config.scopes.flatMap((s) => s.code ?? []);
+  markImplemented(report, scanCodeKeys(repoDir, codeGlobs, keyPattern), codeGlobs.length > 0);
 
   // 4. History: diff against the prior run, then persist this one.
   if (config.history) {

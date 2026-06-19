@@ -104,6 +104,8 @@ export interface TracedRequirement extends Requirement {
   drift: boolean;
   /** Has a result, but it predates the covering tests / the current commit → green may be outdated. */
   stale: boolean;
+  /** Referenced in implementation code (a `@KEY` tag in a `code` source): true/false, or null if not scanned. */
+  inCode: boolean | null;
   tests: TestRef[];
   result: KeyResult;
 }
@@ -119,6 +121,8 @@ export interface TraceStats {
   orphanTests: number;
   /** Number of requirements whose result is outdated relative to the code. */
   stale: number;
+  /** Number of requirements referenced in implementation code (0 when no `code` source is scanned). */
+  implemented: number;
   /** Number of requirements whose state got worse since the compared run (0 when no comparison). */
   regressions: number;
   /** verified / total as a 0–100 integer percentage. */

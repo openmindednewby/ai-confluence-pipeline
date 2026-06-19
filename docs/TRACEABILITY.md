@@ -109,7 +109,8 @@ Without results a referenced requirement is **🧪 unverified**; with a passing 
         { "tech": "jest", "globs": ["src/**/*.test.ts"], "command": "npx jest", "results": ["coverage/junit.xml"] },
         { "tech": "xunit", "globs": ["Services/**/*Tests.cs"], "command": "dotnet test --logger trx", "results": ["Services/**/TestResults/*.trx"] }
       ],
-      "mapping": "docs/traceability.yml"
+      "mapping": "docs/traceability.yml",
+      "code": ["src/**/*.ts", "Services/**/*.cs"]
     }
   ],
   "history": { "dir": "runs", "keep": 100 },
@@ -260,6 +261,19 @@ acp trace --run --post http://collector:9000/ingest       # or set output.post i
 
 So: **local files** (`output.json`/`runs/`), **git** (committed snapshots + the read-only dashboard),
 **or this collector** — pick whichever "where do results live" fits the company.
+
+## Implementation gaps (code-side signal)
+
+Add `code` globs to a scope and tag your implementation with the same `@KEY` convention (e.g. a
+`// @PROJ-1` comment by the handler). The report then knows whether each requirement is **referenced in
+code** — giving a deterministic implementation gap, no AI:
+
+```bash
+acp trace gaps          # 📋 not referenced in code (not started) · 🧪 coded but no test · ❌ tested-not-verified
+acp trace gaps --fail-on-gap   # exit 1 if any requirement isn't in code yet
+```
+
+The full report's matrix carries `inCode` (true/false/null) and a "🔧 Implementation gaps" section.
 
 ## Notifications
 

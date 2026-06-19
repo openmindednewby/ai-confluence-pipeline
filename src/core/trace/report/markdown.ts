@@ -92,6 +92,15 @@ function driftSection(report: TraceReport): string {
   return ['', '## ⚠️ Drift — declared done but not verified', '', ...items].join('\n');
 }
 
+function gapSection(report: TraceReport): string {
+  const scanned = report.requirements.some((r) => r.inCode !== null);
+  if (!scanned) return '';
+  const notImpl = report.requirements.filter((r) => r.inCode === false);
+  if (!notImpl.length) return '';
+  const items = notImpl.map((r) => `- **${link(r.key, r.url)}** ${cell(r.title)} — not referenced in code${r.tests.length ? '' : ' or tests'}`);
+  return ['', '## 🔧 Implementation gaps — declared but not referenced in code', '', ...items].join('\n');
+}
+
 function staleSection(report: TraceReport): string {
   const stale = report.requirements.filter((r) => r.stale);
   if (!stale.length) return '';
@@ -122,6 +131,7 @@ export function renderMarkdown(report: TraceReport): string {
     matrix(report),
     regressionSection(report),
     improvementSection(report),
+    gapSection(report),
     staleSection(report),
     driftSection(report),
     orphanSection(report),
