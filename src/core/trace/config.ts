@@ -50,6 +50,8 @@ export const traceConfigSchema = z.object({
   history: z
     .object({ dir: z.string().default('runs'), baseline: z.string().optional() })
     .optional(),
+  /** Built-in web portal (`acp trace serve`) settings. */
+  portal: z.object({ port: z.number().default(8787) }).optional(),
   output: z
     .object({ markdown: z.string().optional(), html: z.string().optional(), json: z.string().optional() })
     .optional(),
