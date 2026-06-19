@@ -88,6 +88,24 @@ export async function stampJiraLabels(
   return { added: toAdd.length, removed: toRemove.length };
 }
 
+/** POST the full report JSON to a company's own endpoint (their collector/DB). Never throws. */
+export async function postReport(
+  report: TraceReport,
+  post: string | { url: string; headers?: Record<string, string> },
+): Promise<boolean> {
+  const target = typeof post === 'string' ? { url: post, headers: undefined } : post;
+  try {
+    const res = await fetch(target.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(target.headers ?? {}) },
+      body: JSON.stringify(report),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Update an existing Confluence page in place with the rendered report. Returns the page URL. */
 export async function publishConfluenceReport(
   report: TraceReport,

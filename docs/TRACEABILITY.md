@@ -114,7 +114,7 @@ Without results a referenced requirement is **🧪 unverified**; with a passing 
   ],
   "history": { "dir": "runs", "keep": 100 },
   "portal": { "port": 8787 },
-  "output": { "markdown": "docs/RTM.md", "html": "docs/rtm.html", "json": "docs/rtm.json" },
+  "output": { "markdown": "docs/RTM.md", "html": "docs/rtm.html", "json": "docs/rtm.json", "post": "https://rtm.acme.com/ingest" },
   "publish": {
     "roadmap": { "path": "docs/roadmap.md", "sectionId": "rtm" },
     "confluence": { "pageId": "67890", "title": "Requirements Verification" },
@@ -138,8 +138,11 @@ source(s). Requirements from all scopes are merged by key. Use `name` to label w
 
 ## Outputs & publishing
 
-- `output.markdown` / `.html` / `.json` — written every run. The **HTML** is a self-contained,
-  filterable dashboard (open it, commit it, or serve it).
+- `output.markdown` / `.html` / `.json` — written every run (your local "session file" storage). The
+  **HTML** is a self-contained, filterable dashboard (open it, commit it, or serve it).
+- `output.post` — POST the full report JSON to **your own server** (a string URL, or `{ url, headers }`
+  for auth). No Jira/Confluence needed; override per-run with `--post <url>`. This is how you store
+  results centrally on infrastructure you control.
 - `publish.roadmap` — folds the report into an existing markdown doc **between markers**
   (`<!-- acp:trace:start rtm -->…<!-- acp:trace:end rtm -->`), idempotently, leaving the rest untouched.
   Override per-run with `--roadmap <path> --section <id>`.
