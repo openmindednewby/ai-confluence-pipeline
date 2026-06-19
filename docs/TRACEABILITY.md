@@ -205,7 +205,9 @@ Same engine, four front doors — all honour the same config:
 - **CLI / CI** — `acp trace --run --fail-on regression` as a pipeline step.
 - **Agent (MCP)** — the `requirements_trace` tool with `run: true`.
 - **n8n / any webhook** — call the portal: `curl -X POST http://host:8787/run?run=1` (an n8n HTTP
-  Request node pointed at `/run` turns a schedule or webhook into a regression run).
+  Request node pointed at `/run` turns a schedule or webhook into a regression run). A ready-made
+  **nightly** workflow ships at [`workflows/rtm-scheduled-regression.json`](../workflows/rtm-scheduled-regression.json)
+  — import it, set the portal URL, and wire a notify node to its `regressions > 0` branch.
 
 Each run can also refresh where humans/agents look: it writes `output.*`, folds the roadmap section,
 and (with `?publish=1` / `--publish-confluence`) updates the Confluence page — so Jira/Confluence/local

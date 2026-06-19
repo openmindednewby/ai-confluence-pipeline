@@ -14,6 +14,7 @@ This project includes 6 n8n workflows and 8 standalone scripts. This page docume
 | [Anthropic Direct Push](#anthropic-direct-push) | `/webhook/analyze` | Same as above, using Anthropic API (paid) | [SETUP.md](SETUP.md) |
 | [CLI Preview (Claude)](#cli-preview-workflow-claude) | `/webhook/preview-cli` | Preview using `claude` CLI via Execute Command | [CLI_SETUP.md](CLI_SETUP.md) |
 | [CLI Preview (gh models)](#cli-preview-workflow-gh-models) | `/webhook/preview-gh` | Preview using `gh models run` via Execute Command | [CLI_SETUP.md](CLI_SETUP.md) |
+| RTM Scheduled Regression | _(schedule trigger)_ | Nightly `POST /run?run=1` to the RTM portal → branch on `stats.regressions` (wire a notify node) | [TRACEABILITY.md](TRACEABILITY.md) |
 
 ### Standalone Scripts (no Docker, no n8n)
 
