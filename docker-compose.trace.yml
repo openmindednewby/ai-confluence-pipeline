@@ -13,6 +13,10 @@
 #
 # Both reuse the same image. Atlassian creds come from .env (only needed if a requirement
 # source / publish target is Jira or Confluence).
+#
+# SECURITY: both services bind 0.0.0.0, so set RTM_TOKEN in .env before starting (the portal
+# reads it automatically and then requires ?token=…/Bearer/cookie on every request). Without it
+# the portal logs "⚠️ NO AUTH". Generate one: `openssl rand -hex 24`.
 # ============================================================================
 services:
   acp-trace:
@@ -36,7 +40,7 @@ services:
     # Clone (or reuse) the repo into /work, then serve the latest committed run, pulling every 60s.
     command: >
       sh -c "[ -d /work/.git ] || git clone --depth 50 ${REPO_REF:+--branch ${REPO_REF}} \"$REPO_URL\" /work;
-             acp trace serve --host 0.0.0.0 --read-only --pull --pull-interval 60 --watch"
+             acp trace serve --host 0.0.0.0 --read-only --pull --pull-interval 60 --watch --public"
     restart: unless-stopped
     ports:
       - "${ACP_DASHBOARD_PORT:-8788}:8787"

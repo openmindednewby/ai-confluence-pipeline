@@ -124,6 +124,22 @@ the "local storage" half — together they're the model you asked for.
 > Storage stays local: developers commit `runs/` (+ `docs/RTM.md`) to share; the dashboard only ever
 > reads committed snapshots. No central database, no code leaves anyone's machine beyond what they push.
 
+### Securing the portal (do this before exposing it)
+
+The portal binds `0.0.0.0` in both compose services, and `POST /run` executes your configured test
+commands — so **set a token before anyone outside your machine can reach it**:
+
+```bash
+echo "RTM_TOKEN=$(openssl rand -hex 24)" >> .env     # generate + store a shared secret
+docker compose -f docker-compose.trace.yml up -d acp-trace
+```
+
+With `RTM_TOKEN` set, every request needs it — open `http://host:8787/?token=YOUR_TOKEN` once (the
+portal sets an `rtm_token` cookie) or send `Authorization: Bearer YOUR_TOKEN`. The startup log shows
+`token-protected`; if you see `⚠️ NO AUTH` on a non-localhost bind, stop and set the token. The
+read-only team dashboard runs with `--public` (open viewing, since it's read-only and shares status),
+so token-gate it too if your requirement data is sensitive (drop `--public` from its command).
+
 ## Register the MCP server (so an agent can use it)
 
 The MCP server is stdio — run it on demand via `docker run -i`. Point your agent at it:

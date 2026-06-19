@@ -249,6 +249,8 @@ traceCmd
   .option('--pull-interval <sec>', 'seconds between pulls (default 60)', (v) => parseInt(v, 10))
   .option('--watch', 're-trace on an interval and live-update open dashboards (SSE)', false)
   .option('--interval <sec>', 'seconds between watch re-traces (default 5)', (v) => parseInt(v, 10))
+  .option('--token <secret>', 'require this shared secret on every request (or set RTM_TOKEN)')
+  .option('--public', 'with a token, still allow read-only dashboard views without it', false)
   .action(async (opts) => {
     try {
       const configPath = resolve(opts.config);
@@ -260,6 +262,8 @@ traceCmd
         pullIntervalSec: opts.pullInterval,
         watch: opts.watch,
         watchIntervalSec: opts.interval,
+        token: opts.token ?? process.env.RTM_TOKEN,
+        public: opts.public,
       });
     } catch (err) {
       fail(err);

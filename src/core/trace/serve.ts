@@ -34,6 +34,29 @@ export interface ServeOptions {
   watch?: boolean;
   /** Seconds between watch re-traces (default 5). */
   watchIntervalSec?: number;
+  /** Shared secret. When set, every request needs it (Bearer header, ?token=, or the rtm_token cookie). */
+  token?: string;
+  /** With a token set, still allow read-only GETs (dashboard view) without it; protect only mutations. */
+  public?: boolean;
+}
+
+const PUBLIC_GET = new Set(['GET /', 'GET /index.html', 'GET /api/report', 'GET /api/runs', 'GET /events']);
+
+function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of (header ?? '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return out;
+}
+
+/** A request is authorized if there's no token, or it presents the token (header / query / cookie). */
+function isAuthorized(req: IncomingMessage, url: URL, token: string | undefined): boolean {
+  if (!token) return true;
+  if (req.headers.authorization === `Bearer ${token}`) return true;
+  if (url.searchParams.get('token') === token) return true;
+  return parseCookies(req.headers.cookie).rtm_token === token;
 }
 
 /** A change signature: the dashboard only refreshes when a state/stat actually changes. */
@@ -65,6 +88,8 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
   const port = opts.port ?? config.portal?.port ?? 8787;
   const host = opts.host ?? '127.0.0.1';
   const readOnly = Boolean(opts.readOnly);
+  const token = opts.token && opts.token.length ? opts.token : undefined;
+  const isPublic = Boolean(opts.public);
   const historyDir = historyDirOf(config, baseDir);
   const repoDir = rel(baseDir, config.repoDir ?? '.');
 
@@ -101,16 +126,29 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
 
   await new Promise<void>((ok) => server.listen(port, host, ok));
   const mode = readOnly ? 'read-only · git-backed' : 'live';
-  process.stdout.write(`\n  RTM portal (${mode}${opts.watch ? ' · watching' : ''}): http://${host}:${port}\n`);
+  const auth = token ? (isPublic ? ' · token (public view)' : ' · token-protected') : host !== '127.0.0.1' ? ' · ⚠️ NO AUTH' : '';
+  process.stdout.write(`\n  RTM portal (${mode}${opts.watch ? ' · watching' : ''}${auth}): http://${host}:${port}${token ? `/?token=${token}` : ''}\n`);
   if (!readOnly) process.stdout.write('  POST /run (?run=1 to execute suites, ?publish=1 to push to Confluence)  ·  GET /api/report  ·  Ctrl+C to stop\n');
 
   async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const key = `${req.method} ${url.pathname}`;
 
+    // Auth gate: a token protects everything, unless --public exempts read-only GETs.
+    if (token && !isAuthorized(req, url, token) && !(isPublic && PUBLIC_GET.has(key))) {
+      if (req.method === 'GET' && (key === 'GET /' || key === 'GET /index.html')) {
+        res.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end('<p>Unauthorized. Append <code>?token=YOUR_TOKEN</code> to the URL (set when the portal was started).</p>');
+        return;
+      }
+      return sendJson(res, 401, { error: 'unauthorized — provide ?token=, an Authorization: Bearer header, or the rtm_token cookie' });
+    }
+
     if (key === 'GET /' || key === 'GET /index.html') {
       if (readOnly && historyDir) current = loadPreviousRun(historyDir) ?? current;
-      return sendHtml(res, portalPage(current as TraceReport, runsFor(historyDir), { readOnly, live: true }));
+      // Remember the token in a cookie so the dashboard's fetch()/EventSource carry it on reload.
+      const headers: Record<string, string> = token ? { 'Set-Cookie': `rtm_token=${token}; HttpOnly; SameSite=Strict; Path=/` } : {};
+      return sendHtml(res, portalPage(current as TraceReport, runsFor(historyDir), { readOnly, live: true }), headers);
     }
     if (key === 'GET /events') return openEventStream(req, res, clients);
     if (key === 'GET /api/report') {
@@ -208,8 +246,8 @@ export function portalPage(report: TraceReport, runs: string[], opts: { readOnly
   return html;
 }
 
-function sendHtml(res: ServerResponse, html: string): void {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+function sendHtml(res: ServerResponse, html: string, headers: Record<string, string> = {}): void {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...headers });
   res.end(html);
 }
 

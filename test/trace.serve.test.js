@@ -125,6 +125,48 @@ test('serve: /events pushes "changed" when a run changes the report (auto-refres
   }
 });
 
+test('serve --token: protects every route; token via header/query authorizes', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-auth-'));
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'requirements.md'), '- [x] PROJ-1 Login');
+  writeFileSync(join(root, 'acp-trace.json'), JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [] }] }));
+
+  const port = 8914;
+  const server = await serve(join(root, 'acp-trace.json'), root, { port, token: 's3cret' });
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    assert.equal((await fetch(`${base}/api/report`)).status, 401); // no token
+    assert.equal((await fetch(`${base}/run`, { method: 'POST' })).status, 401);
+    assert.equal((await fetch(`${base}/api/report`, { headers: { Authorization: 'Bearer s3cret' } })).status, 200);
+    assert.equal((await fetch(`${base}/api/report?token=s3cret`)).status, 200);
+    // GET / with the token sets the cookie for subsequent same-origin calls
+    const home = await fetch(`${base}/?token=s3cret`);
+    assert.equal(home.status, 200);
+    assert.match(home.headers.get('set-cookie') || '', /rtm_token=s3cret/);
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise((ok) => server.close(ok));
+  }
+});
+
+test('serve --token --public: read-only GETs open, mutations still protected', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-pub-'));
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'requirements.md'), '- [x] PROJ-1 Login');
+  writeFileSync(join(root, 'acp-trace.json'), JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [] }] }));
+
+  const port = 8915;
+  const server = await serve(join(root, 'acp-trace.json'), root, { port, token: 's3cret', public: true });
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    assert.equal((await fetch(`${base}/api/report`)).status, 200); // public view allowed
+    assert.equal((await fetch(`${base}/run`, { method: 'POST' })).status, 401); // mutation still needs token
+  } finally {
+    server.closeAllConnections?.();
+    await new Promise((ok) => server.close(ok));
+  }
+});
+
 test('serve --read-only: shows committed run, refuses POST /run', async () => {
   const root = mkdtempSync(join(tmpdir(), 'rtm-ro-'));
   mkdirSync(join(root, 'docs'), { recursive: true });
