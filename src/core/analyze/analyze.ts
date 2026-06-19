@@ -5,7 +5,7 @@
  * a use-case flow, and tagged unit/e2e test stubs scaffolded into the repo. So an implementation agent
  * knows exactly what to build and how to verify it. The AI call is injectable for deterministic tests.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import type { TraceConfig } from '../trace/config.js';
 import { gatherRequirements } from '../trace/index.js';
@@ -41,8 +41,10 @@ export interface AnalyzeOptions {
   chat?: ChatFn;
   /** Output folder for the analysis artifacts (default `tech-analysis`). */
   outDir?: string;
-  /** Cap how many code file paths are sent as context. */
+  /** Cap how many code files are read as context. */
   maxFiles?: number;
+  /** Cap total bytes of code context sent to the model (default ~60 KB). */
+  maxContextBytes?: number;
   /** Scaffold the per-task test stubs into the repo (default true). */
   scaffold?: boolean;
 }
@@ -61,21 +63,50 @@ produce a precise technical gap analysis and a development-ready breakdown. Resp
   ]
 }`;
 
-/** Build the prompt from requirements + code context. */
+/** Read the code files' CONTENTS into one capped context block (so the gap analysis sees real code). */
+export function collectCodeContext(
+  repoDir: string,
+  files: string[],
+  opts: { maxBytesPerFile?: number; maxTotalBytes?: number } = {},
+): { context: string; included: number; omitted: number } {
+  const perFile = opts.maxBytesPerFile ?? 6000;
+  const total = opts.maxTotalBytes ?? 60000;
+  let out = '';
+  let used = 0;
+  let included = 0;
+  for (const f of files) {
+    if (used >= total) break;
+    let content: string;
+    try {
+      content = readFileSync(join(repoDir, f), 'utf8');
+    } catch {
+      continue;
+    }
+    if (content.length > perFile) content = `${content.slice(0, perFile)}\n…(truncated)`;
+    const block = `=== ${f} ===\n${content}\n\n`;
+    out += block;
+    used += block.length;
+    included += 1;
+  }
+  return { context: out || '(no code files)', included, omitted: Math.max(0, files.length - included) };
+}
+
+/** Build the prompt from requirements + code context (file contents). */
 export function buildPrompt(
   requirements: Array<{ key: string; title: string; declaredStatus: string | null }>,
-  codeFiles: string[],
+  codeContext: string,
+  codeFileCount = 0,
 ): ChatMessage[] {
   const reqList = requirements.map((r) => `- ${r.key}: ${r.title} [${r.declaredStatus ?? 'unknown'}]`).join('\n');
-  const fileList = codeFiles.length ? codeFiles.join('\n') : '(no code globs configured)';
   return [
     { role: 'system', content: SYSTEM },
     {
       role: 'user',
       content:
         `REQUIREMENTS (reuse these keys for tasks):\n${reqList}\n\n` +
-        `CODEBASE FILES:\n${fileList}\n\n` +
-        `Analyse the gap between the requirements and the codebase, then output the JSON.`,
+        `CODEBASE (${codeFileCount} file(s); contents below, some truncated):\n${codeContext}\n\n` +
+        `Compare the requirements against the actual code above. For each requirement say whether it is ` +
+        `implemented, partial, or missing (cite files), then output the JSON.`,
     },
   ];
 }
@@ -114,8 +145,9 @@ export async function analyze(config: TraceConfig, baseDir: string, opts: Analyz
   const requirements = await gatherRequirements(config, baseDir);
   const codeGlobs = config.scopes.flatMap((s) => s.code ?? []);
   const codeFiles = codeGlobs.length ? globFiles(repoDir, codeGlobs).slice(0, opts.maxFiles ?? 200) : [];
+  const { context } = collectCodeContext(repoDir, codeFiles, { maxTotalBytes: opts.maxContextBytes });
 
-  const reply = await chat(buildPrompt(requirements, codeFiles));
+  const reply = await chat(buildPrompt(requirements, context, codeFiles.length));
   const out = validateOutput(extractJson(reply));
 
   const outDir = resolve(baseDir, opts.outDir ?? 'tech-analysis');
