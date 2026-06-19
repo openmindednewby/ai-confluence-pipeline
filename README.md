@@ -445,46 +445,21 @@ The workflow JSON, prompt templates, and trigger scripts in this repo are all MI
 
 ## Roadmap
 
-See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
+Full backlog in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md). At a glance:
 
-**Done:**
-- 13 prompt templates across 3 categories (full-pipeline, confluence-only, jira-only)
-- Template registry with JSON Schema validation
-- Team context profiles with schema and example
-- **`acp` CLI + MCP server** — publish agent/hand-written markdown to Jira & Confluence (Stage 1: via n8n publish webhooks). See **[Install guide](docs/INSTALL.md)** · **[CLI & MCP guide](docs/CLI_AND_MCP.md)** · **[ready-to-use setup prompt](docs/SETUP_PROMPT.md)**.
-- **Reverse pipeline (Jira/Confluence → markdown)** — `acp pull-jira` / `acp pull-confluence` (+ `jira_to_markdown` / `confluence_to_markdown` MCP tools + `scripts/*-to-folder.*`). Pulls an epic/page tree via direct REST into a round-trippable markdown folder with an `acp-pull.json` manifest. Recursive (Epic→Stories→Sub-tasks; page→descendants).
-- **Recursive re-publish** — `acp push-folder` (+ `push_folder` MCP tool) reads `acp-pull.json` and pushes the edited tree back via direct REST, updating sub-tasks / child pages in place (the n8n flat path can't). Ships the TS forward converters `markdownToAdf` / `markdownToStorage`.
-- **Mermaid diagrams** — ` ```mermaid ` blocks render in both products and round-trip both ways: ADF code block (Jira) and a configurable Confluence macro (`CONFLUENCE_MERMAID_MACRO`, default `mermaid-cloud`), with the source kept in the body so `pull → edit → push` is lossless.
-- **Docker image + one-shot deploy** — a small Node 22 image (`acp` CLI + `acp-mcp` server). `./scripts/getting-started.sh` builds it and deploys to **local Docker Desktop or a remote host over SSH** (registry-less `docker save | gzip | ssh 'gunzip | docker load'`). Paste-ready **[agent deploy prompts](docs/DEPLOY_PROMPT.md)** (local + remote) and full **[Docker guide](docs/DOCKER.md)**.
-- **Browser UI workbench** — reusable templates, named sessions, a rolling 10-deep auto-history, undo/redo, and multi-tab-safe shared storage (independent tabs, shared library). See **[Workbench guide](docs/SESSIONS.md)**.
-- **Interactive decisions** — `acp questions <md>` turns an open-questions doc (mermaid flow + a QA checklist) into a self-contained interactive HTML: answer in a browser, nodes recolour, rejected branches dim, answers autosave + export to markdown/JSON (with the diagram) ready for `acp confluence`/`acp jira`. See **[Decisions guide](docs/QUESTIONS.md)**.
-- **Requirements traceability + regression pipeline** — `acp trace` links tests (Playwright/Jest/Vitest/node/xUnit) ↔ requirements (Jira/roadmap/Confluence/markdown) ↔ status at the current git commit; optional suite execution (`--run`), git-stamped run history + **regression** detection, a built-in web portal (`acp trace serve`) with a Run button, all-surface triggers (CLI/CI, portal, MCP, n8n webhook), autodetect onboarding (`acp trace init`), and always-on deploy (local + git-backed team dashboard). See **[Traceability guide](docs/TRACEABILITY.md)**.
+### ✅ Done — shipped, tested, deployed
+- **Publish & pull** — `acp` CLI + MCP server: markdown ⇄ Jira/Confluence (`jira` / `confluence` / `pull-jira` / `pull-confluence` / `push-folder`), recursive + round-trippable, mermaid both ways. [CLI & MCP](docs/CLI_AND_MCP.md)
+- **Docker & deploy** — small Node image (`acp` + `acp-mcp`); `./scripts/getting-started.sh` deploys to local Docker Desktop or a remote host over SSH. [Deploy](docs/DEPLOY.md)
+- **Interactive decisions** — `acp questions <md>` → a self-contained interactive decision HTML; answers export ready for `acp confluence`. [Decisions](docs/QUESTIONS.md)
+- **Requirements traceability + regression pipeline** — `acp trace`: links tests ↔ requirements ↔ status at each git commit; run history + regression/stale detection; a secured web portal (`acp trace serve`) with **▶ run** buttons (per requirement / per suite) and live output; autodetect onboarding; notifications + a PR GitHub Action; always-on local + git-backed team dashboards. **[Traceability](docs/TRACEABILITY.md)** · **[5-minute onboarding](docs/ONBOARDING.md)**
+- **Browser UI workbench** + 13 prompt templates + team profiles (the original AI-publishing flow).
 
-**Traceability — recently shipped:**
-- [x] Live Atlassian round-trip verification — `scripts/verify-atlassian.*` (read-only pull + dry-run push) + opt-in `test/atlassian.live.test.js` (skips without creds). See [Traceability guide](docs/TRACEABILITY.md#verifying-live-atlassian-access).
-- [x] Portal visual QA — sample-dashboard generator (`node scripts/preview-rtm.mjs`, covers every state + regression + orphan) + a [visual-QA checklist](docs/VISUAL_QA.md) + static element check. Live in-browser eyeball is a documented manual step.
-- [x] Portal auto-refresh (SSE `/events`) + `--watch` re-trace — the dashboard reloads itself on any run (incl. n8n/CI-triggered), a watch tick, or a read-only pull. Local compose service runs `--watch`.
-- [x] Jira label stamping — `acp trace --stamp-jira` (or portal `POST /run?stamp=1`) adds `publish.jira.verifiedLabel` to verified Jira issues and removes it when they regress (other labels untouched).
-- [x] Packaged n8n workflow JSON for scheduled regression runs — [`workflows/rtm-scheduled-regression.json`](workflows/rtm-scheduled-regression.json) (nightly `POST /run?run=1` → branch on `stats.regressions`).
+### 🔑 Needs your account / browser — tooling is built, just run it
+- **Live Atlassian round-trip** — put `JIRA_*` / `CONFLUENCE_*` in `.env`, then `scripts/verify-atlassian.sh PROJ-12`.
+- **In-browser dashboard QA** — `node scripts/preview-rtm.mjs`, open `preview/rtm-portal-sample.html`.
 
-**Traceability — hardening & adoption (in progress):**
-- [x] Portal auth — `--token`/`RTM_TOKEN` (Bearer / `?token=` / cookie) + `--public` for read-only views; compose deploy is safe once `RTM_TOKEN` is set.
-- [x] Stale-results guard — ⏳ flags a requirement whose result predates its covering tests or the current commit (`--fail-on stale`), so an outdated green never reads as fresh truth.
-- [x] Regression notifications — `--notify <webhook>` / `notify` config (Slack/Teams/generic, on regression/failing/stale/always) + a copy-paste [GitHub Action](docs/ci/rtm-github-action.yml) that runs the suites, fails the PR on a regression, and comments the RTM.
-- [x] Portal depth — per-requirement drill-down (tests/files), run permalinks (`GET /runs/<snapshot>`), a coverage-trend sparkline, and `history.keep` retention (old snapshots pruned on save).
-- [x] One-command org onboarding — `acp trace init --all` generates a portal token (`.env`) + an always-on compose service + a PR GitHub Action; [docs/ONBOARDING.md](docs/ONBOARDING.md) is the 5-minute guide.
-
-**Traceability — dashboard test triggering:**
-- [x] Trigger tests from the dashboard — the Run button executes all suites; a **▶ per requirement** runs only its tagged tests (`--grep`/`-t`/`--filter`, surgical via snapshot/restore so siblings are untouched); a **▶ per suite** runs one group.
-- [x] Live run status/output — triggered runs stream the command's stdout to a live panel over SSE (named `running`/`output`/`done` events); the run executes asynchronously so the portal stays responsive.
-
-**Next up:**
-- **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing
-- **Confluence page templates** — polished layouts with macros, panels, and TOC per template type
-- **Jira structure support** — epic-with-stories, phased-epics, story-with-subtasks in n8n
-- **Smart template selection** — AI auto-detects the best template from the description
-- **Direct-REST backend (forward)** — wire `ACP_BACKEND=direct` into `acp jira` / `acp confluence` so *publishing* reuses the now-ported TS converters (`markdownToAdf` / `markdownToStorage`) instead of n8n
-- **`acp analyze`** — AI generation via the CLI (currently the agent generates; tool publishes)
+### 🧭 Optional / future — older AI-publishing ideas, not required
+Direct-REST forward backend (`ACP_BACKEND=direct`) · `acp analyze` (AI generation in the CLI) · n8n template routing · Confluence page templates · Jira structure presets · smart template selection.
 
 ## Contributing
 
