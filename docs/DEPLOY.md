@@ -89,6 +89,41 @@ Use **save/load** for a clean registry-less hand-off; use a **context** to build
 
 ---
 
+## Run the RTM portal as an always-on service
+
+The traceability portal (`acp trace serve`) is designed to be **local-first**: storage is each repo's
+own `runs/`, and every run is stamped with that checkout's git commit — so status is inherently
+per-person. Deploy it as an always-on service in either (or both) of two shapes via
+[`docker-compose.trace.yml`](../docker-compose.trace.yml):
+
+### 1. Per-person local service (private, your machine)
+
+Mounts your repo, serves the live dashboard with a Run button; data stays on your disk.
+
+```bash
+docker compose -f docker-compose.trace.yml up -d acp-trace   # http://localhost:8787
+```
+
+`restart: unless-stopped` keeps it running across reboots (with Docker Desktop set to start on login).
+Override the port with `ACP_TRACE_PORT`.
+
+### 2. Team git-backed dashboard (shared, read-only)
+
+One deployed instance that clones a repo, shows the **latest committed run**, and `git pull`s every
+60s — so everyone's local runs roll up through normal commits. It never runs tests itself and the Run
+button is disabled.
+
+```bash
+REPO_URL=https://github.com/you/your-repo.git \
+  docker compose -f docker-compose.trace.yml --profile dashboard up -d   # http://localhost:8788
+```
+
+Set `REPO_REF` for a specific branch. This is the "deployed service" half; the per-person service is
+the "local storage" half — together they're the model you asked for.
+
+> Storage stays local: developers commit `runs/` (+ `docs/RTM.md`) to share; the dashboard only ever
+> reads committed snapshots. No central database, no code leaves anyone's machine beyond what they push.
+
 ## Register the MCP server (so an agent can use it)
 
 The MCP server is stdio — run it on demand via `docker run -i`. Point your agent at it:

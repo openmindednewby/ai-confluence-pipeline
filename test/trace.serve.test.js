@@ -28,6 +28,13 @@ test('portalPage injects the Run button, suites checkbox, and history', () => {
   assert.match(html, /^<!doctype html>/);
 });
 
+test('portalPage read-only: no Run button, shows the git-backed badge', () => {
+  const html = portalPage(demoReport(), [], { readOnly: true });
+  assert.doesNotMatch(html, /id="rtm-run"/);
+  assert.doesNotMatch(html, /id="rtm-suites"/);
+  assert.match(html, /read-only · git-backed/);
+});
+
 test('serve: live server answers /api/report, /api/runs, and POST /run', async () => {
   const root = mkdtempSync(join(tmpdir(), 'rtm-serve-'));
   mkdirSync(join(root, 'e2e', 'results'), { recursive: true });
@@ -66,6 +73,36 @@ test('serve: live server answers /api/report, /api/runs, and POST /run', async (
     assert.ok(runs.runs.length >= 1);
 
     assert.equal((await fetch(`${base}/nope`)).status, 404);
+  } finally {
+    await new Promise((ok) => server.close(ok));
+  }
+});
+
+test('serve --read-only: shows committed run, refuses POST /run', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-ro-'));
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  mkdirSync(join(root, 'runs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'requirements.md'), '- [x] PROJ-1 Login');
+  // Seed a committed run snapshot for the dashboard to display.
+  const snapshot = {
+    generatedAt: '2026-06-19T00:00:00Z', git: { sha: 'a', shortSha: 'abc12345', branch: 'main', dirty: false, committedAt: null },
+    requirements: [{ key: 'PROJ-1', title: 'Login', declaredStatus: 'Done', declaredComplete: true, source: 'markdown', state: 'verified', drift: false, tests: [], result: { passed: 1, failed: 0, skipped: 0, lastRun: null } }],
+    orphanTests: [], stats: { total: 1, verified: 1, failing: 0, unverified: 0, specified: 0, drift: 0, orphanTests: 0, regressions: 0, coveragePct: 100 },
+  };
+  writeFileSync(join(root, 'runs', '2026-06-19T00-00-00-000Z_abc12345.json'), JSON.stringify(snapshot));
+  writeFileSync(
+    join(root, 'acp-trace.json'),
+    JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [] }], history: { dir: 'runs' } }),
+  );
+
+  const port = 8912;
+  const server = await serve(join(root, 'acp-trace.json'), root, { port, readOnly: true });
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    assert.match(await (await fetch(`${base}/`)).text(), /read-only · git-backed/);
+    const report = await (await fetch(`${base}/api/report`)).json();
+    assert.equal(report.git.shortSha, 'abc12345'); // the committed snapshot, not a fresh trace
+    assert.equal((await fetch(`${base}/run`, { method: 'POST' })).status, 403);
   } finally {
     await new Promise((ok) => server.close(ok));
   }

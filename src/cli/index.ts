@@ -237,11 +237,20 @@ traceCmd
   .description('Start the web portal: live RTM dashboard + Run button + history + JSON API.')
   .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
   .option('--port <n>', 'port to listen on', (v) => parseInt(v, 10))
-  .option('--host <host>', 'bind host (default 127.0.0.1)')
+  .option('--host <host>', 'bind host (default 127.0.0.1; use 0.0.0.0 in a container)')
+  .option('--read-only', 'git-backed central dashboard: show the latest committed run, disable running', false)
+  .option('--pull', 'in --read-only mode, git pull on an interval to pick up newly committed runs', false)
+  .option('--pull-interval <sec>', 'seconds between pulls (default 60)', (v) => parseInt(v, 10))
   .action(async (opts) => {
     try {
       const configPath = resolve(opts.config);
-      await serve(configPath, dirname(configPath), { port: opts.port, host: opts.host });
+      await serve(configPath, dirname(configPath), {
+        port: opts.port,
+        host: opts.host,
+        readOnly: opts.readOnly,
+        pull: opts.pull,
+        pullIntervalSec: opts.pullInterval,
+      });
     } catch (err) {
       fail(err);
     }

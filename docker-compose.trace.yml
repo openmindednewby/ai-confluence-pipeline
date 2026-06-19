@@ -1,0 +1,53 @@
+# ============================================================================
+# Deploy the RTM portal as an always-on service. Two shapes (use one or both):
+#
+#   1) acp-trace            — PER-PERSON local service. Mounts THIS repo; storage is the
+#                             repo's own runs/. Live dashboard + Run button. Private to you.
+#                             Start:  docker compose -f docker-compose.trace.yml up -d acp-trace
+#                             Open:   http://localhost:8787
+#
+#   2) acp-trace-dashboard  — TEAM git-backed read-only dashboard. Clones a repo, shows the
+#                             latest COMMITTED run, and `git pull`s on an interval. No running.
+#                             Set REPO_URL (+ optional REPO_REF), then:
+#                             docker compose -f docker-compose.trace.yml --profile dashboard up -d
+#
+# Both reuse the same image. Atlassian creds come from .env (only needed if a requirement
+# source / publish target is Jira or Confluence).
+# ============================================================================
+services:
+  acp-trace:
+    build: .
+    image: acp:latest
+    command: acp trace serve --host 0.0.0.0
+    restart: unless-stopped
+    ports:
+      - "${ACP_TRACE_PORT:-8787}:8787"
+    working_dir: /work
+    volumes:
+      - ./:/work          # this repo — config (acp-trace.json), tests, results, runs/
+    env_file:
+      - .env
+
+  # Team-wide, read-only, backed by a git checkout. Started only with `--profile dashboard`.
+  acp-trace-dashboard:
+    build: .
+    image: acp:latest
+    profiles: ["dashboard"]
+    # Clone (or reuse) the repo into /work, then serve the latest committed run, pulling every 60s.
+    command: >
+      sh -c "[ -d /work/.git ] || git clone --depth 50 ${REPO_REF:+--branch ${REPO_REF}} \"$REPO_URL\" /work;
+             acp trace serve --host 0.0.0.0 --read-only --pull --pull-interval 60"
+    restart: unless-stopped
+    ports:
+      - "${ACP_DASHBOARD_PORT:-8788}:8787"
+    working_dir: /work
+    environment:
+      - REPO_URL=${REPO_URL:-}
+      - REPO_REF=${REPO_REF:-}
+    volumes:
+      - acp_dashboard_repo:/work
+    env_file:
+      - .env
+
+volumes:
+  acp_dashboard_repo:

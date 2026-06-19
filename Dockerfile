@@ -26,6 +26,10 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
+# git: lets `acp trace` stamp the commit when the repo is mounted, and powers the read-only
+# dashboard's `--pull` loop. Tiny; safe to include.
+RUN apk add --no-cache git
+
 # Prod dependencies only. `npm ci --omit=dev` runs `prepare` (build) by default, which
 # would need the TS toolchain we dropped — skip lifecycle scripts, we copy dist in next.
 COPY package.json package-lock.json ./
@@ -39,9 +43,12 @@ RUN chmod +x dist/cli/index.js dist/mcp/server.js \
   && ln -s /app/dist/cli/index.js /usr/local/bin/ai-confluence-pipeline \
   && ln -s /app/dist/mcp/server.js /usr/local/bin/acp-mcp
 
-# Default working area for mounted output folders (pull-jira / pull-confluence targets).
+# Default working area for mounted output folders (pull targets) + the trace portal repo mount.
 RUN mkdir -p /work
 WORKDIR /work
+
+# The `acp trace serve` portal listens here (override with --port).
+EXPOSE 8787
 
 # Default: run the stdio MCP server (attach with `docker run -i`).
 CMD ["acp-mcp"]
