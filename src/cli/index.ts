@@ -18,6 +18,7 @@ import { autodetect, REQUIREMENTS_STUB } from '../core/trace/autodetect.js';
 import { scaffoldOrg } from '../core/trace/scaffold.js';
 import { runTrace } from '../core/trace/index.js';
 import { serve } from '../core/trace/serve.js';
+import { generateQuestions } from '../core/questions/generate.js';
 import { writeOutputs, updateRoadmapSection, publishConfluenceReport, stampJiraLabels } from '../core/trace/publish.js';
 import { shouldNotify, sendNotification } from '../core/trace/notify.js';
 import type { TraceReport } from '../core/trace/types.js';
@@ -179,6 +180,30 @@ program
       process.stdout.write(`\n  Markdown folder -> Atlassian\n  Dir: ${dir}${opts.dryRun ? '  [DRY RUN]' : ''}\n`);
       const result = await pushFolder(dir, { dryRun: opts.dryRun });
       printPushResult(result);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+program
+  .command('questions')
+  .description('Generate an interactive decision/Q&A HTML from an open-questions markdown (mermaid flow + QA list).')
+  .argument('<input>', 'open-questions markdown file (see docs/QUESTIONS.md for the conventions)')
+  .option('--out <file>', 'output HTML path (default: <input>.html)')
+  .option('--cdn', 'load mermaid from a CDN instead of inlining it (smaller file, needs internet)', false)
+  .option('--link', 'reference the vendored mermaid by relative path instead of inlining', false)
+  .action((input: string, opts) => {
+    try {
+      const md = read(input);
+      const outPath = opts.out ?? input.replace(/\.md$/i, '.html');
+      const mermaid = opts.cdn ? 'cdn' : opts.link ? 'link' : 'inline';
+      const { html, data, unmapped } = generateQuestions(md, { mermaid, outPath });
+      writeFileSync(outPath, html, 'utf8');
+      const branched = data.questions.filter((q) => q.targets.some(Boolean)).length;
+      process.stdout.write(`\n  Wrote ${outPath}\n`);
+      process.stdout.write(`  ${data.questions.length} question(s) (${branched} branched), ${data.edges.length} edges, mermaid=${mermaid}\n`);
+      process.stdout.write(unmapped.length ? `  ⚠️  unmapped: ${unmapped.map((n) => `Q${n}`).join(', ')}\n` : '  all questions mapped to a node\n');
+      process.stdout.write('  Answer in a browser, Export .md, then publish:  acp confluence --page <answers>.md\n');
     } catch (err) {
       fail(err);
     }
