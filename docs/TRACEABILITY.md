@@ -176,6 +176,14 @@ acp trace serve --config acp-trace.json --port 8787   # http://127.0.0.1:8787
 | `GET /api/runs` | recent run snapshot filenames |
 | `POST /run` | trigger a run. `?run=1` executes the suites; `?publish=1` also updates the Confluence page. Writes the configured outputs + roadmap section. |
 
+**Deploy it as an always-on service** (local-first, storage stays on each machine) via
+[`docker-compose.trace.yml`](../docker-compose.trace.yml): a **per-person local service** (`acp-trace`,
+live, private) and/or a **team git-backed read-only dashboard** (`acp trace serve --read-only --pull`,
+shows the latest *committed* run, `git pull`s on an interval). See
+[DEPLOY.md → always-on service](DEPLOY.md#run-the-rtm-portal-as-an-always-on-service).
+
+Read-only mode flags: `acp trace serve --read-only [--pull] [--pull-interval 60]`.
+
 ## Trigger it from anywhere
 
 Same engine, four front doors — all honour the same config:
