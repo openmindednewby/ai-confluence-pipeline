@@ -78,6 +78,16 @@ function detectTests(repoDir: string, notes: string[]): TestSourceConfig[] {
   return out;
 }
 
+/** Detect implementation-code globs (common source dirs) for the gap signal + analyze context. */
+function detectCode(repoDir: string, notes: string[]): string[] {
+  const ext = '*.{ts,tsx,js,jsx,cs,py,go,java,rb,php}';
+  const globs = ['src', 'lib', 'app', 'packages', 'Services', 'services', 'internal', 'pkg']
+    .map((d) => `${d}/**/${ext}`)
+    .filter((g) => globFiles(repoDir, [g]).length > 0);
+  if (globs.length) notes.push(`✔ code: ${globs.join(', ')}`);
+  return globs;
+}
+
 /** Find an existing requirements source, or signal that a stub should be created. */
 function detectRequirements(repoDir: string, notes: string[]): { req: TraceConfig['scopes'][number]['requirements']; stub: string | null } {
   const roadmap = globFiles(repoDir, ['**/roadmap.html', 'docs/**/roadmap.html'])[0];
@@ -124,9 +134,10 @@ export function autodetect(repoDir: string, project?: string, profile?: string):
   } else {
     ({ req, stub } = detectRequirements(repoDir, notes));
   }
+  const code = detectCode(repoDir, notes);
   const config: TraceConfig = {
     project: project ?? 'My Product',
-    scopes: [{ name: 'default', requirements: req, tests }],
+    scopes: [{ name: 'default', requirements: req, tests, ...(code.length ? { code } : {}) }],
     history: { dir: 'runs' },
     output: { markdown: 'docs/RTM.md', html: 'docs/rtm.html', json: 'docs/rtm.json' },
     portal: { port: 8787 },

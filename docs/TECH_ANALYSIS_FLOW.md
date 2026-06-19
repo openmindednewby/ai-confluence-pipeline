@@ -24,7 +24,23 @@ publish (optional) + develop + verify
       acp trace --run --fail-on regression               (the implementation agent's definition of done)
 ```
 
-## Commands
+## The easy path — one command
+
+```bash
+acp trace init        # wizard: autodetects test frameworks, code globs, and a requirements source
+acp pipeline          # gather requirements → gaps → analyze → tech docs + Jira tasks + tagged tests
+```
+
+With open decisions to resolve first, do the two-pass loop:
+
+```bash
+acp pipeline --ask                       # → an interactive open-questions form (mermaid + QA)
+# stakeholders fill it in a browser → export answers.md
+acp pipeline --answers answers.md        # incorporates the decisions → final tech docs + tasks + tests
+acp pipeline --publish-confluence --publish-jira   # …and push everything to Confluence + Jira
+```
+
+## Step by step
 
 ```bash
 # 1. Gather requirements from every configured source into one local folder

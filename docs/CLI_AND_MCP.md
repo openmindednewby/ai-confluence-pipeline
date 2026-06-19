@@ -93,7 +93,14 @@ Answer in a browser → Export .md (decisions + diagram) → `acp confluence --p
 
 ### Business requirements → development-ready (`acp analyze`)
 
-The full pipeline (guide: [TECH_ANALYSIS_FLOW.md](TECH_ANALYSIS_FLOW.md)):
+The full pipeline (guide: [TECH_ANALYSIS_FLOW.md](TECH_ANALYSIS_FLOW.md)) — one command after `acp trace init`:
+
+```bash
+acp pipeline                     # gather requirements → gaps → analyze → tech docs + Jira tasks + tagged tests
+acp pipeline --ask               # two-pass: produce an open-questions form first; resolve, then --answers
+```
+
+…or the individual steps:
 
 ```bash
 acp trace pull-requirements      # gather a MIX of sources → requirements/ folder + manifest

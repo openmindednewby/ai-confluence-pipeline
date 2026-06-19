@@ -190,6 +190,59 @@ program
   });
 
 program
+  .command('pipeline')
+  .description('Run the whole BA→dev pipeline in one go: gather requirements → gaps → analyze (→ tech docs + Jira tasks + tagged tests).')
+  .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
+  .option('--reqs-dir <path>', 'requirements folder', 'requirements')
+  .option('--out <dir>', 'analysis output folder', 'tech-analysis')
+  .option('--ask', 'stop after producing the open-questions form (resolve decisions first)', false)
+  .option('--answers <file>', 'incorporate filled-in stakeholder answers (markdown)')
+  .option('--no-scaffold', 'do not scaffold the per-task test stubs')
+  .option('--publish-confluence', 'publish technical-analysis.md to Confluence', false)
+  .option('--publish-jira', 'publish the tasks (epic + stories) to Jira', false)
+  .option('--force', 'overwrite an existing requirements folder', false)
+  .action(async (opts) => {
+    try {
+      const configPath = resolve(opts.config);
+      const baseDir = dirname(configPath);
+      const config = loadTraceConfig(configPath);
+
+      process.stdout.write('\n  [1/3] Gathering requirements…\n');
+      const folder = writeRequirementsFolder(await gatherRequirements(config, baseDir), resolve(baseDir, opts.reqsDir), opts.force);
+      process.stdout.write(`        ${folder.files.length} requirement(s) → ${opts.reqsDir}/\n`);
+
+      process.stdout.write('  [2/3] Implementation gaps…\n');
+      const report = await runTrace(config, baseDir, { save: false });
+      const scanned = report.requirements.some((r) => r.inCode !== null);
+      const notInCode = report.requirements.filter((r) => r.inCode === false).length;
+      process.stdout.write(scanned
+        ? `        ${report.stats.implemented} in code · ${notInCode} not started · ${report.stats.verified} verified\n`
+        : '        (no `code` globs configured — add scope.code to see implementation gaps)\n');
+
+      process.stdout.write(`  [3/3] Technical analysis (AI)…${opts.ask ? '  [ask: surfacing decisions]' : ''}\n`);
+      const answers = opts.answers ? read(resolve(opts.answers)) : undefined;
+      const r = await analyze(config, baseDir, { outDir: opts.out, scaffold: opts.scaffold, ask: opts.ask, answers });
+      if (r.mode === 'ask') {
+        process.stdout.write(`\n  Open the form, collect answers, then:  acp pipeline --answers <answers>.md\n  (form: ${r.questionsHtml})\n`);
+        return;
+      }
+      process.stdout.write(`        ${r.tasks.length} task(s), ${r.scaffolded.length} test stub(s) → ${opts.out}/\n`);
+
+      if (opts.publishConfluence) {
+        const res = await publishConfluence({ pageMarkdown: read(join(baseDir, opts.out, 'technical-analysis.md')) });
+        process.stdout.write(`  Confluence: ${res.page?.url ?? 'published'}\n`);
+      }
+      if (opts.publishJira) {
+        const taskMarkdowns = r.tasks.map((t) => read(join(baseDir, opts.out, 'tasks', `${t.key}.md`)));
+        printJiraResult(await publishJira({ epicMarkdown: read(join(baseDir, opts.out, 'tasks', 'epic.md')), taskMarkdowns }));
+      }
+      process.stdout.write(`\n  Done. Implement against ${opts.out}/tasks/, then verify:  acp trace --run --fail-on regression\n`);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+program
   .command('analyze')
   .description('AI: requirements + codebase → gap analysis + technical-analysis (Confluence) + Jira tasks + scaffolded tests.')
   .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
