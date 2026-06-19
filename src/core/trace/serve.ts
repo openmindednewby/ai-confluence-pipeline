@@ -30,6 +30,17 @@ export interface ServeOptions {
   pull?: boolean;
   /** Seconds between pulls (default 60). */
   pullIntervalSec?: number;
+  /** Re-trace on an interval and push live updates to open dashboards (SSE). */
+  watch?: boolean;
+  /** Seconds between watch re-traces (default 5). */
+  watchIntervalSec?: number;
+}
+
+/** A change signature: the dashboard only refreshes when a state/stat actually changes. */
+function signature(report: TraceReport): string {
+  const s = report.stats;
+  const states = report.requirements.map((r) => `${r.key}:${r.state}`).join(',');
+  return `${s.coveragePct}|${s.failing}|${s.regressions}|${s.total}|${states}`;
 }
 
 function rel(baseDir: string, p: string): string {
@@ -61,7 +72,28 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
   let current: TraceReport | null = readOnly && historyDir ? loadPreviousRun(historyDir) : null;
   if (!current) current = await runTrace(config, baseDir, { save: false, compare: !readOnly });
 
+  let version = signature(current as TraceReport);
+  const clients = new Set<ServerResponse>();
+
+  /** Adopt a new report; if it actually changed, notify open dashboards to refresh. */
+  function setCurrent(report: TraceReport): void {
+    current = report;
+    const sig = signature(report);
+    if (sig === version) return;
+    version = sig;
+    for (const res of clients) res.write('data: changed\n\n');
+  }
+
+  /** Re-derive the current report (read-only: latest committed run; live: a fresh ingest). */
+  async function refresh(): Promise<void> {
+    const report = readOnly
+      ? (historyDir ? loadPreviousRun(historyDir) : null) ?? (current as TraceReport)
+      : await runTrace(config, baseDir, { save: false, compare: true });
+    setCurrent(report);
+  }
+
   if (readOnly && opts.pull) startPullLoop(repoDir, (opts.pullIntervalSec ?? 60) * 1000);
+  if (opts.watch) setInterval(() => void refresh().catch(() => undefined), (opts.watchIntervalSec ?? 5) * 1000).unref();
 
   const server = createServer((req, res) => {
     route(req, res).catch((err) => sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) }));
@@ -69,7 +101,7 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
 
   await new Promise<void>((ok) => server.listen(port, host, ok));
   const mode = readOnly ? 'read-only · git-backed' : 'live';
-  process.stdout.write(`\n  RTM portal (${mode}): http://${host}:${port}\n`);
+  process.stdout.write(`\n  RTM portal (${mode}${opts.watch ? ' · watching' : ''}): http://${host}:${port}\n`);
   if (!readOnly) process.stdout.write('  POST /run (?run=1 to execute suites, ?publish=1 to push to Confluence)  ·  GET /api/report  ·  Ctrl+C to stop\n');
 
   async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -78,8 +110,9 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
 
     if (key === 'GET /' || key === 'GET /index.html') {
       if (readOnly && historyDir) current = loadPreviousRun(historyDir) ?? current;
-      return sendHtml(res, portalPage(current as TraceReport, runsFor(historyDir), { readOnly }));
+      return sendHtml(res, portalPage(current as TraceReport, runsFor(historyDir), { readOnly, live: true }));
     }
+    if (key === 'GET /events') return openEventStream(req, res, clients);
     if (key === 'GET /api/report') {
       if (readOnly && historyDir) current = loadPreviousRun(historyDir) ?? current;
       return sendJson(res, 200, current);
@@ -89,13 +122,25 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
       if (readOnly) return sendJson(res, 403, { error: 'read-only dashboard — runs happen on each developer machine' });
       const report = await runTrace(config, baseDir, { run: url.searchParams.get('run') === '1', save: true, compare: true });
       applySinks(report, config, baseDir, url.searchParams.get('publish') === '1');
-      current = report;
+      setCurrent(report);
       return sendJson(res, 200, { ok: true, stats: report.stats, regressions: report.regressions ?? [] });
     }
     sendJson(res, 404, { error: `no route: ${key}` });
   }
 
   return server;
+}
+
+/** Server-Sent Events stream: emits `data: changed` whenever the report's signature changes. */
+function openEventStream(req: IncomingMessage, res: ServerResponse, clients: Set<ServerResponse>): void {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  res.write(': connected\n\n');
+  clients.add(res);
+  req.on('close', () => clients.delete(res));
 }
 
 /** Periodically `git pull` so a read-only dashboard picks up newly committed runs. */
@@ -132,8 +177,11 @@ btn&&btn.addEventListener('click',async()=>{btn.disabled=true;btn.textContent='R
   try{await fetch('/run'+(chk&&chk.checked?'?run=1':''),{method:'POST'});location.reload();}
   catch(e){btn.textContent='Run failed — retry';btn.disabled=false;}});`;
 
+// Auto-refresh: reload when the server signals the report changed (a run, a watch tick, a pull).
+const SSE_SCRIPT = `try{const es=new EventSource('/events');es.onmessage=()=>location.reload();}catch(_){}`;
+
 /** Inject the portal toolbar + script into the static dashboard HTML. */
-export function portalPage(report: TraceReport, runs: string[], opts: { readOnly?: boolean } = {}): string {
+export function portalPage(report: TraceReport, runs: string[], opts: { readOnly?: boolean; live?: boolean } = {}): string {
   const runsList = runs.length
     ? runs.map((r) => `<li><code>${r.replace(/</g, '&lt;')}</code></li>`).join('')
     : '<li>(no history yet)</li>';
@@ -150,7 +198,10 @@ export function portalPage(report: TraceReport, runs: string[], opts: { readOnly
   let html = renderHtml(report)
     .replace('</head>', `<style>${PORTAL_STYLE}</style></head>`)
     .replace('<div class="cards">', `${toolbar}<div class="cards">`);
-  if (!opts.readOnly) html = html.replace('</body>', `<script>${PORTAL_SCRIPT}</script></body>`);
+  const scripts: string[] = [];
+  if (!opts.readOnly) scripts.push(PORTAL_SCRIPT);
+  if (opts.live) scripts.push(SSE_SCRIPT);
+  if (scripts.length) html = html.replace('</body>', `<script>${scripts.join('\n')}</script></body>`);
   return html;
 }
 

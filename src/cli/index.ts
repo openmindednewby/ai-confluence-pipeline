@@ -241,6 +241,8 @@ traceCmd
   .option('--read-only', 'git-backed central dashboard: show the latest committed run, disable running', false)
   .option('--pull', 'in --read-only mode, git pull on an interval to pick up newly committed runs', false)
   .option('--pull-interval <sec>', 'seconds between pulls (default 60)', (v) => parseInt(v, 10))
+  .option('--watch', 're-trace on an interval and live-update open dashboards (SSE)', false)
+  .option('--interval <sec>', 'seconds between watch re-traces (default 5)', (v) => parseInt(v, 10))
   .action(async (opts) => {
     try {
       const configPath = resolve(opts.config);
@@ -250,6 +252,8 @@ traceCmd
         readOnly: opts.readOnly,
         pull: opts.pull,
         pullIntervalSec: opts.pullInterval,
+        watch: opts.watch,
+        watchIntervalSec: opts.interval,
       });
     } catch (err) {
       fail(err);

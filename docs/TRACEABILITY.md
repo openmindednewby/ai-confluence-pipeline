@@ -174,7 +174,13 @@ acp trace serve --config acp-trace.json --port 8787   # http://127.0.0.1:8787
 | `GET /` | the live dashboard (Run button, history, regression banner) |
 | `GET /api/report` | the current report as JSON |
 | `GET /api/runs` | recent run snapshot filenames |
+| `GET /events` | Server-Sent Events stream; emits `changed` when the report changes |
 | `POST /run` | trigger a run. `?run=1` executes the suites; `?publish=1` also updates the Confluence page. Writes the configured outputs + roadmap section. |
+
+The dashboard **auto-refreshes**: it subscribes to `/events` and reloads whenever the report changes —
+from a `POST /run` (even one triggered by n8n/CI), a `--watch` re-trace, or a read-only `--pull`. Add
+`--watch` to re-trace on an interval (default 5s) so the page tracks result files as they update:
+`acp trace serve --watch`.
 
 **Deploy it as an always-on service** (local-first, storage stays on each machine) via
 [`docker-compose.trace.yml`](../docker-compose.trace.yml): a **per-person local service** (`acp-trace`,

@@ -18,7 +18,7 @@ services:
   acp-trace:
     build: .
     image: acp:latest
-    command: acp trace serve --host 0.0.0.0
+    command: acp trace serve --host 0.0.0.0 --watch
     restart: unless-stopped
     ports:
       - "${ACP_TRACE_PORT:-8787}:8787"
@@ -36,7 +36,7 @@ services:
     # Clone (or reuse) the repo into /work, then serve the latest committed run, pulling every 60s.
     command: >
       sh -c "[ -d /work/.git ] || git clone --depth 50 ${REPO_REF:+--branch ${REPO_REF}} \"$REPO_URL\" /work;
-             acp trace serve --host 0.0.0.0 --read-only --pull --pull-interval 60"
+             acp trace serve --host 0.0.0.0 --read-only --pull --pull-interval 60 --watch"
     restart: unless-stopped
     ports:
       - "${ACP_DASHBOARD_PORT:-8788}:8787"
