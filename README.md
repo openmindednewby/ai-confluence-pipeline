@@ -453,6 +453,14 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 - **Mermaid diagrams** — ` ```mermaid ` blocks render in both products and round-trip both ways: ADF code block (Jira) and a configurable Confluence macro (`CONFLUENCE_MERMAID_MACRO`, default `mermaid-cloud`), with the source kept in the body so `pull → edit → push` is lossless.
 - **Docker image + one-shot deploy** — a small Node 22 image (`acp` CLI + `acp-mcp` server). `./scripts/getting-started.sh` builds it and deploys to **local Docker Desktop or a remote host over SSH** (registry-less `docker save | gzip | ssh 'gunzip | docker load'`). Paste-ready **[agent deploy prompts](docs/DEPLOY_PROMPT.md)** (local + remote) and full **[Docker guide](docs/DOCKER.md)**.
 - **Browser UI workbench** — reusable templates, named sessions, a rolling 10-deep auto-history, undo/redo, and multi-tab-safe shared storage (independent tabs, shared library). See **[Workbench guide](docs/SESSIONS.md)**.
+- **Requirements traceability + regression pipeline** — `acp trace` links tests (Playwright/Jest/Vitest/node/xUnit) ↔ requirements (Jira/roadmap/Confluence/markdown) ↔ status at the current git commit; optional suite execution (`--run`), git-stamped run history + **regression** detection, a built-in web portal (`acp trace serve`) with a Run button, all-surface triggers (CLI/CI, portal, MCP, n8n webhook), autodetect onboarding (`acp trace init`), and always-on deploy (local + git-backed team dashboard). See **[Traceability guide](docs/TRACEABILITY.md)**.
+
+**Traceability — pending:**
+- [x] Live Atlassian round-trip verification — `scripts/verify-atlassian.*` (read-only pull + dry-run push) + opt-in `test/atlassian.live.test.js` (skips without creds). See [Traceability guide](docs/TRACEABILITY.md#verifying-live-atlassian-access).
+- [ ] Portal visual QA in Chrome
+- [ ] Portal auto-refresh (SSE) + file-watch re-trace
+- [ ] Jira label stamping (`publish.jira.verifiedLabel`)
+- [ ] Packaged n8n workflow JSON for scheduled regression runs
 
 **Next up:**
 - **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing

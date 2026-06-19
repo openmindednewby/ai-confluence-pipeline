@@ -215,6 +215,25 @@ Agents can call **`requirements_trace`** (`{ configPath?, format?, run? }`) to g
 structured stats (incl. regressions) for the current commit, optionally re-running the suites first.
 See [CLI_AND_MCP.md](CLI_AND_MCP.md).
 
+## Verifying live Atlassian access
+
+The Jira/Confluence providers are unit-tested against mocks. To confirm they work against your real
+instance — **read-only, no content created** — either run the one-command script or the opt-in live
+tests:
+
+```bash
+# Read-only round-trip (pull the epic/page → markdown, then resolve the write path with --dry-run):
+./scripts/verify-atlassian.sh PROJ-12 123456        # epic key, optional page id
+
+# Or the gated integration tests (they SKIP unless these are set):
+JIRA_BASE_URL=… JIRA_EMAIL=… JIRA_API_TOKEN=… RTM_LIVE_EPIC=PROJ-12 \
+CONFLUENCE_BASE_URL=… CONFLUENCE_EMAIL=… CONFLUENCE_API_TOKEN=… RTM_LIVE_PAGE=123456 \
+  npm test
+```
+
+`RTM_LIVE_EPIC` / `RTM_LIVE_PAGE` pick the targets; without them the live tests skip so `npm test`
+stays green offline.
+
 ## How it works (internals)
 
 `src/core/trace/` — `requirements/*` providers → `runner` (optional suite execution) → `testScanner`
