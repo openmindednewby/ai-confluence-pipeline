@@ -10,6 +10,7 @@ Thumbs.db
 # Preview output (generated files, review locally)
 preview/*.md
 preview/*.json
+preview/*.html
 !preview/.gitkeep
 
 # Custom company prompts (proprietary, never committed)
