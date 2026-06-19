@@ -15,6 +15,7 @@ import { pushFolder } from '../core/push.js';
 import { getConfig } from '../core/config.js';
 import { loadTraceConfig, starterConfig, DEFAULT_CONFIG_FILENAME } from '../core/trace/config.js';
 import { runTrace } from '../core/trace/index.js';
+import { serve } from '../core/trace/serve.js';
 import { writeOutputs, updateRoadmapSection, publishConfluenceReport } from '../core/trace/publish.js';
 import type { TraceReport } from '../core/trace/types.js';
 import type {
@@ -225,6 +226,21 @@ const traceCmd = program
       }
 
       process.exit(exitCode(report, opts.failOn));
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+traceCmd
+  .command('serve')
+  .description('Start the web portal: live RTM dashboard + Run button + history + JSON API.')
+  .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
+  .option('--port <n>', 'port to listen on', (v) => parseInt(v, 10))
+  .option('--host <host>', 'bind host (default 127.0.0.1)')
+  .action(async (opts) => {
+    try {
+      const configPath = resolve(opts.config);
+      await serve(configPath, dirname(configPath), { port: opts.port, host: opts.host });
     } catch (err) {
       fail(err);
     }
