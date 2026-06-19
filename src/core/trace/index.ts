@@ -61,6 +61,18 @@ async function loadRequirements(
   }
 }
 
+/** Gather ALL requirements across every scope's sources (the mixed-source collector backbone). */
+export async function gatherRequirements(config: TraceConfig, baseDir: string): Promise<Requirement[]> {
+  const keyPattern = config.keyPattern ?? DEFAULT_KEY_PATTERN;
+  const out: Requirement[] = [];
+  for (const scope of config.scopes) {
+    for (const source of scope.requirements) {
+      out.push(...(await loadRequirements(source, baseDir, keyPattern, scope.name)));
+    }
+  }
+  return out;
+}
+
 /** Collect refs + result files for one scope. */
 function loadScopeTests(
   scope: TraceScope,
