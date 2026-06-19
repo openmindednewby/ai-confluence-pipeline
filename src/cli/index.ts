@@ -19,7 +19,7 @@ import { scaffoldOrg } from '../core/trace/scaffold.js';
 import { runTrace } from '../core/trace/index.js';
 import { serve } from '../core/trace/serve.js';
 import { generateQuestions } from '../core/questions/generate.js';
-import { writeOutputs, updateRoadmapSection, publishConfluenceReport, stampJiraLabels } from '../core/trace/publish.js';
+import { writeOutputs, updateRoadmapSection, publishConfluenceReport, stampJiraLabels, postReport } from '../core/trace/publish.js';
 import { shouldNotify, sendNotification } from '../core/trace/notify.js';
 import type { TraceReport } from '../core/trace/types.js';
 import type {
@@ -220,6 +220,7 @@ const traceCmd = program
   .option('--section <id>', 'section id used with --roadmap', 'rtm')
   .option('--publish-confluence', 'update the Confluence page from config.publish.confluence', false)
   .option('--stamp-jira', 'stamp config.publish.jira.verifiedLabel onto verified Jira issues', false)
+  .option('--post <url>', 'POST the full report JSON to this endpoint (your own server); else config.output.post')
   .option('--notify <url>', 'POST a summary to this webhook (Slack/Teams/generic); else config.notify.webhook')
   .option('--notify-on <level>', 'when to notify: regression | failing | stale | always')
   .option('--run', 'execute each test group\'s command before tracing (re-run the suites)', false)
@@ -259,6 +260,12 @@ const traceCmd = program
       if (opts.stampJira && config.publish?.jira?.verifiedLabel) {
         const { added, removed } = await stampJiraLabels(report, config.publish.jira);
         process.stdout.write(`  Stamped Jira "${config.publish.jira.verifiedLabel}": +${added} / -${removed}\n`);
+      }
+
+      const postTarget = opts.post ?? config.output?.post;
+      if (postTarget) {
+        const ok = await postReport(report, postTarget);
+        process.stdout.write(`  Posted report to server: ${ok ? 'ok' : 'failed'}\n`);
       }
 
       const notifyUrl = opts.notify ?? config.notify?.webhook;

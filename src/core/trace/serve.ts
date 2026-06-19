@@ -17,7 +17,7 @@ import { loadTraceConfig } from './config.js';
 import { listRuns, loadPreviousRun, loadRun } from './history.js';
 import { runTrace } from './index.js';
 import { runRequirement, runSuite } from './triggers.js';
-import { publishConfluenceReport, stampJiraLabels, updateRoadmapSection, writeOutputs } from './publish.js';
+import { publishConfluenceReport, postReport, stampJiraLabels, updateRoadmapSection, writeOutputs } from './publish.js';
 import { shouldNotify, sendNotification } from './notify.js';
 import { renderHtml } from './report/html.js';
 import type { TraceReport } from './types.js';
@@ -234,6 +234,7 @@ function startPullLoop(repoDir: string, intervalMs: number): void {
 /** Write file outputs + roadmap section (+ Confluence / Jira labels when asked) after a triggered run. */
 function applySinks(report: TraceReport, config: TraceConfig, baseDir: string, publish: boolean, stamp: boolean): void {
   if (config.output) writeOutputs(report, config.output, baseDir);
+  if (config.output?.post) void postReport(report, config.output.post).catch(() => undefined);
   if (config.publish?.roadmap) updateRoadmapSection(report, config.publish.roadmap, baseDir);
   if (publish && config.publish?.confluence) {
     void publishConfluenceReport(report, config.publish.confluence).catch(() => undefined);

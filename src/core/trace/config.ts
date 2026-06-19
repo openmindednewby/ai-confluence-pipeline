@@ -60,7 +60,13 @@ export const traceConfigSchema = z.object({
     })
     .optional(),
   output: z
-    .object({ markdown: z.string().optional(), html: z.string().optional(), json: z.string().optional() })
+    .object({
+      markdown: z.string().optional(),
+      html: z.string().optional(),
+      json: z.string().optional(),
+      /** POST the full report JSON to a company's own endpoint/collector (string URL or {url, headers}). */
+      post: z.union([z.string(), z.object({ url: z.string(), headers: z.record(z.string()).optional() })]).optional(),
+    })
     .optional(),
   publish: z
     .object({
