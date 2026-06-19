@@ -137,6 +137,12 @@ source(s). Requirements from all scopes are merged by key. Use `name` to label w
 | `markdown` | a local file | a table (`\| KEY \| Title \| Status \|`) or a checklist (`- [x] KEY Title`) |
 | `github-issues` | `repo` (+ `GITHUB_TOKEN` if private/rate-limited) | issues → requirements keyed `GH-<n>` (configurable `keyPrefix`); open/closed → declared status; filter by `label`/`milestone`; PRs skipped. Tag tests `@GH-123`. |
 | `gitlab-issues` | `project` (+ `GITLAB_TOKEN` if private) | issues → requirements keyed `GL-<iid>`; `opened`/`closed`; filter by `label`. Tag tests `@GL-7`. |
+| `command` | any script | **bring your own source** — runs `command`; its stdout is parsed as JSON (`[{key,title,status?,complete?,url?}]`) or markdown. Wire a DB / CSV / internal API with zero forking. |
+
+**Bring your own source.** The `command` source is the extension point: point it at any script (`node`,
+`python`, a shell one-liner) that prints your requirements as JSON or markdown — no need to fork the
+tool. Likewise `output.post` sends results to any sink you run. **Stack profiles** scaffold a starting
+config: `acp trace init --profile github | gitlab | jira | confluence | markdown | command`.
 
 ## Outputs & publishing
 

@@ -29,7 +29,8 @@ export type RequirementSourceKind =
   | 'confluence-page'
   | 'markdown'
   | 'github-issues'
-  | 'gitlab-issues';
+  | 'gitlab-issues'
+  | 'command';
 
 /** A single requirement to verify (one row of the matrix). */
 export interface Requirement {
