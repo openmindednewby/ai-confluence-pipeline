@@ -36,6 +36,12 @@ const requirementSourceSchema = z.discriminatedUnion('type', [
     baseUrl: z.string().optional(),
     token: z.string().optional(),
   }),
+  z.object({
+    type: z.literal('command'),
+    command: z.string(), // any script; stdout = JSON array or markdown of requirements
+    format: z.enum(['json', 'markdown']).optional(),
+    cwd: z.string().optional(),
+  }),
 ]);
 
 const testSourceSchema = z.object({

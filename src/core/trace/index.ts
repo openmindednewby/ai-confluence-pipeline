@@ -9,6 +9,7 @@ import type { RequirementSource, TraceConfig, TraceScope } from './config.js';
 import { computeReport } from './computeState.js';
 import { getGitContext } from './gitContext.js';
 import { fetchConfluenceRequirements } from './requirements/confluencePage.js';
+import { runCommandRequirements } from './requirements/command.js';
 import { fetchGithubRequirements, fetchGitlabRequirements } from './requirements/issues.js';
 import { fetchJiraRequirements } from './requirements/jiraEpic.js';
 import { parseMarkdownRequirements } from './requirements/markdown.js';
@@ -53,6 +54,8 @@ async function loadRequirements(
       return fetchGithubRequirements(source, scope);
     case 'gitlab-issues':
       return fetchGitlabRequirements(source, scope);
+    case 'command':
+      return runCommandRequirements(source, baseDir, keyPattern, scope);
     default:
       return [];
   }

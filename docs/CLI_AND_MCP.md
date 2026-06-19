@@ -113,9 +113,9 @@ acp trace --config acp-trace.json --publish-confluence           # update the co
 results change), `--read-only`/`--pull`/`--pull-interval` (git-backed team dashboard),
 `--token`/`--public` (shared-secret auth — required before exposing the portal beyond localhost; or
 set `RTM_TOKEN`).
-`acp trace init` flags: `--project`, `--jira-epic`/`--markdown`/`--roadmap`/`--confluence-page` (skip
-autodetect), `--all` (org setup: token + compose + PR Action — see [ONBOARDING.md](ONBOARDING.md)),
-`--template`, `--out`, `--force`.
+`acp trace init` flags: `--project`, `--profile github|gitlab|jira|confluence|markdown|command`,
+`--jira-epic`/`--markdown`/`--roadmap`/`--confluence-page` (skip autodetect), `--all` (org setup: token
++ compose + PR Action — see [ONBOARDING.md](ONBOARDING.md)), `--template`, `--out`, `--force`.
 
 The portal exposes `GET /` (dashboard), `GET /api/report`, `GET /api/runs`, and `POST /run`
 (`?run=1` executes suites, `?publish=1` updates Confluence) — so n8n/CI/agents can trigger runs too.

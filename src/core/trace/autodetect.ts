@@ -94,11 +94,36 @@ function detectRequirements(repoDir: string, notes: string[]): { req: TraceConfi
   return { req: [{ type: 'markdown', path: 'docs/requirements.md' }], stub: 'docs/requirements.md' };
 }
 
-/** Scan `repoDir` and produce a ready config + detection notes. */
-export function autodetect(repoDir: string, project?: string): DetectPlan {
+type ProfileReq = TraceConfig['scopes'][number]['requirements'];
+
+/** Stack presets for `acp trace init --profile <name>` — the requirements source is preset; tests autodetect. */
+const PROFILES: Record<string, { req: ProfileReq; note: string; stub?: string }> = {
+  github: { req: [{ type: 'github-issues', repo: 'OWNER/REPO', label: 'requirement' }], note: 'profile github → github-issues (edit repo; set GITHUB_TOKEN if private)' },
+  gitlab: { req: [{ type: 'gitlab-issues', project: 'GROUP/PROJECT', label: 'requirement' }], note: 'profile gitlab → gitlab-issues (edit project; set GITLAB_TOKEN if private)' },
+  jira: { req: [{ type: 'jira-epic', epic: 'PROJ-1' }], note: 'profile jira → jira-epic (edit epic; set JIRA_* in .env)' },
+  confluence: { req: [{ type: 'confluence-page', pageId: '123456' }], note: 'profile confluence → confluence-page (edit pageId; set CONFLUENCE_* in .env)' },
+  markdown: { req: [{ type: 'markdown', path: 'docs/requirements.md' }], note: 'profile markdown → local markdown spec', stub: 'docs/requirements.md' },
+  command: { req: [{ type: 'command', command: 'node scripts/requirements.js' }], note: 'profile command → run a script that prints requirements JSON/markdown (your own source)' },
+};
+
+/** Valid `--profile` names. */
+export const PROFILE_NAMES = Object.keys(PROFILES);
+
+/** Scan `repoDir` and produce a ready config + detection notes. `profile` presets the requirement source. */
+export function autodetect(repoDir: string, project?: string, profile?: string): DetectPlan {
   const notes: string[] = [];
   const tests = detectTests(repoDir, notes);
-  const { req, stub } = detectRequirements(repoDir, notes);
+  let req: ProfileReq;
+  let stub: string | null;
+  if (profile) {
+    const p = PROFILES[profile];
+    if (!p) throw new Error(`unknown profile "${profile}". Valid: ${PROFILE_NAMES.join(', ')}`);
+    req = p.req;
+    stub = p.stub ?? null;
+    notes.push(`✔ ${p.note}`);
+  } else {
+    ({ req, stub } = detectRequirements(repoDir, notes));
+  }
   const config: TraceConfig = {
     project: project ?? 'My Product',
     scopes: [{ name: 'default', requirements: req, tests }],

@@ -322,6 +322,7 @@ traceCmd
   .option('--markdown <path>', 'requirement source: a markdown spec file (skips autodetect)')
   .option('--roadmap <path>', 'requirement source: a roadmap HTML file (skips autodetect)')
   .option('--confluence-page <id>', 'requirement source: a Confluence page id (skips autodetect)')
+  .option('--profile <stack>', 'preset the requirement source: github | gitlab | jira | confluence | markdown | command')
   .option('--template', 'write a plain template instead of autodetecting', false)
   .option('--all', 'org setup: also generate a portal token (.env) + compose service + PR GitHub Action', false)
   .option('--force', 'overwrite an existing config', false)
@@ -331,7 +332,7 @@ traceCmd
       if (existsSync(out) && !opts.force) {
         throw new Error(`${opts.out} already exists. Use --force to overwrite.`);
       }
-      const hinted = opts.jiraEpic || opts.markdown || opts.roadmap || opts.confluencePage || opts.template;
+      const hinted = !opts.profile && (opts.jiraEpic || opts.markdown || opts.roadmap || opts.confluencePage || opts.template);
       if (hinted) {
         const content = starterConfig({
           project: opts.project,
@@ -344,9 +345,9 @@ traceCmd
         process.stdout.write(`\n  Wrote ${opts.out}\n  Edit it, then run:  acp trace --config ${opts.out}\n`);
         return;
       }
-      // Autodetect (default).
+      // Autodetect (default), optionally with a stack profile presetting the requirement source.
       const repoDir = process.cwd();
-      const plan = autodetect(repoDir, opts.project);
+      const plan = autodetect(repoDir, opts.project, opts.profile);
       plan.notes.forEach((n) => process.stdout.write(`  ${n}\n`));
       if (plan.createRequirementsStub) {
         const stubPath = resolve(repoDir, plan.createRequirementsStub);
