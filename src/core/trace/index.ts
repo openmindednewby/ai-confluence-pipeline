@@ -15,7 +15,7 @@ import { parseRoadmapHtml } from './requirements/roadmapHtml.js';
 import { ingestResults } from './results.js';
 import { renderHtml } from './report/html.js';
 import { renderMarkdown } from './report/markdown.js';
-import { runCommands, type CommandRun, type RunnableSpec } from './runner.js';
+import { execCommands, type CommandRun, type RunnableSpec } from './runner.js';
 import { applyDiff, loadBaseline, pruneRuns, saveRun } from './history.js';
 import { markStale } from './stale.js';
 import { DEFAULT_KEY_PATTERN, readMappingFile, scanTestSources, type TestSourceSpec } from './testScanner.js';
@@ -80,6 +80,8 @@ export interface RunTraceOptions {
   save?: boolean;
   /** Diff against the previous run / baseline (default true when `history` is configured). */
   compare?: boolean;
+  /** Stream each executed command's output line-by-line (the portal uses this for live status). */
+  onLine?: (line: string) => void;
 }
 
 /** A trace result plus any command runs that produced it. */
@@ -108,7 +110,7 @@ export async function runTraceDetailed(
     const specs: RunnableSpec[] = config.scopes.flatMap((s) =>
       s.tests.map((t) => ({ tech: t.tech, command: t.command, cwd: t.cwd })),
     );
-    commands = runCommands(specs, repoDir);
+    commands = await execCommands(specs, repoDir, opts.onLine);
   }
 
   // 2. Gather requirements + test refs + result files.

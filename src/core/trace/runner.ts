@@ -3,7 +3,7 @@
  * it (in `cwd`, via the shell) so the suite re-produces its JUnit/TRX files before they're ingested.
  * A non-zero exit does NOT abort the trace — the resulting failures show up in the report on their own.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { isAbsolute, resolve } from 'node:path';
 
 const DEFAULT_TIMEOUT_MS = 600_000; // 10 min per suite
@@ -60,4 +60,65 @@ export function runCommands(
   return specs
     .filter((s): s is RunnableSpec & { command: string } => Boolean(s.command))
     .map((s) => runCommand(s, repoDir, now));
+}
+
+/**
+ * Async, non-blocking variant that streams output line-by-line via `onLine` (so the portal can show
+ * live status without freezing the server, which `spawnSync` would). Resolves with the outcome.
+ */
+export function runCommandStream(
+  spec: RunnableSpec & { command: string },
+  repoDir: string,
+  onLine?: (line: string) => void,
+  now: () => number = () => Date.now(),
+): Promise<CommandRun> {
+  const cwd = spec.cwd ? (isAbsolute(spec.cwd) ? spec.cwd : resolve(repoDir, spec.cwd)) : repoDir;
+  const started = now();
+  return new Promise((resolveP) => {
+    let out = '';
+    let buf = '';
+    const child = spawn(spec.command, { cwd, shell: true });
+    const timer = setTimeout(() => child.kill(), DEFAULT_TIMEOUT_MS);
+    const onData = (d: Buffer) => {
+      const s = d.toString();
+      out += s;
+      if (onLine) {
+        buf += s;
+        const lines = buf.split(/\r?\n/);
+        buf = lines.pop() ?? '';
+        for (const l of lines) onLine(l);
+      }
+    };
+    child.stdout?.on('data', onData);
+    child.stderr?.on('data', onData);
+    const finish = (exitCode: number | null) => {
+      clearTimeout(timer);
+      if (onLine && buf) onLine(buf);
+      resolveP({
+        tech: spec.tech,
+        command: spec.command,
+        cwd,
+        exitCode,
+        ok: exitCode === 0,
+        durationMs: now() - started,
+        output: out.length > MAX_OUTPUT ? `…${out.slice(-MAX_OUTPUT)}` : out,
+      });
+    };
+    child.on('close', (code) => finish(code));
+    child.on('error', () => finish(null));
+  });
+}
+
+/** Async run of every spec that has a command, streaming output through `onLine`. */
+export async function execCommands(
+  specs: RunnableSpec[],
+  repoDir: string,
+  onLine?: (line: string) => void,
+): Promise<CommandRun[]> {
+  const out: CommandRun[] = [];
+  for (const s of specs) {
+    if (!s.command) continue;
+    out.push(await runCommandStream({ ...s, command: s.command }, repoDir, onLine));
+  }
+  return out;
 }

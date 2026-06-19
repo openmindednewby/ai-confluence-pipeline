@@ -202,6 +202,36 @@ test('serve --token --public: read-only GETs open, mutations still protected', a
   }
 });
 
+test('serve: a triggered suite streams its stdout as SSE "output" events (live status)', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-live-'));
+  mkdirSync(join(root, 'e2e'), { recursive: true });
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'requirements.md'), '- [ ] PROJ-1 Login');
+  writeFileSync(join(root, 'e2e', 'a.spec.ts'), `test('login @PROJ-1', ()=>{});`);
+  writeFileSync(
+    join(root, 'acp-trace.json'),
+    JSON.stringify({
+      scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }],
+        tests: [{ tech: 'playwright', globs: ['e2e/**/*.spec.ts'], command: 'node -e "console.log(\'hello-from-suite\')"' }] }],
+    }),
+  );
+
+  const port = 8917;
+  const server = await serve(join(root, 'acp-trace.json'), root, { port });
+  let reader;
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    const stream = await fetch(`${base}/events`);
+    reader = stream.body.getReader();
+    await fetch(`${base}/run?suite=playwright`, { method: 'POST' });
+    assert.equal(await readUntil(reader, 'hello-from-suite', 5000), true); // streamed live
+  } finally {
+    if (reader) await reader.cancel().catch(() => {});
+    server.closeAllConnections?.();
+    await new Promise((ok) => server.close(ok));
+  }
+});
+
 test('serve --read-only: shows committed run, refuses POST /run', async () => {
   const root = mkdtempSync(join(tmpdir(), 'rtm-ro-'));
   mkdirSync(join(root, 'docs'), { recursive: true });

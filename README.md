@@ -476,7 +476,7 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 
 **Traceability — dashboard test triggering:**
 - [x] Trigger tests from the dashboard — the Run button executes all suites; a **▶ per requirement** runs only its tagged tests (`--grep`/`-t`/`--filter`, surgical via snapshot/restore so siblings are untouched); a **▶ per suite** runs one group.
-- [ ] Live run status/output — spinner on the triggered row(s) + stream the command's stdout over SSE.
+- [x] Live run status/output — triggered runs stream the command's stdout to a live panel over SSE (named `running`/`output`/`done` events); the run executes asynchronously so the portal stays responsive.
 
 **Next up:**
 - **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing
