@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { extractJson, aiConfigFromEnv } from '../dist/core/analyze/ai.js';
-import { buildPrompt, validateOutput, taskMarkdown, analyze } from '../dist/core/analyze/analyze.js';
+import { buildPrompt, validateOutput, taskMarkdown, analyze, collectCodeContext } from '../dist/core/analyze/analyze.js';
 import { parseTraceConfig } from '../dist/core/trace/config.js';
 
 test('extractJson: handles fences + surrounding prose', () => {
@@ -21,11 +21,23 @@ test('aiConfigFromEnv: anthropic vs openai-compatible', () => {
   assert.match(oa.baseUrl, /\/v1$|api/);
 });
 
+test('collectCodeContext: reads + caps file contents', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-ctx-'));
+  mkdirSync(join(root, 'src'));
+  writeFileSync(join(root, 'src', 'auth.ts'), 'export function login(){ return true; }');
+  writeFileSync(join(root, 'src', 'big.ts'), 'x'.repeat(10000));
+  const { context, included } = collectCodeContext(root, ['src/auth.ts', 'src/big.ts'], { maxBytesPerFile: 100 });
+  assert.equal(included, 2);
+  assert.match(context, /=== src\/auth\.ts ===[\s\S]*function login/); // real contents
+  assert.match(context, /…\(truncated\)/); // big file truncated
+});
+
 test('buildPrompt + validateOutput + taskMarkdown', () => {
-  const msgs = buildPrompt([{ key: 'PROJ-1', title: 'Login', declaredStatus: 'To Do' }], ['src/auth.ts']);
+  const msgs = buildPrompt([{ key: 'PROJ-1', title: 'Login', declaredStatus: 'To Do' }], '=== src/auth.ts ===\nfunction login(){}', 1);
   assert.equal(msgs[0].role, 'system');
   assert.match(msgs[1].content, /PROJ-1: Login/);
   assert.match(msgs[1].content, /src\/auth\.ts/);
+  assert.match(msgs[1].content, /function login/); // actual code in the prompt
 
   const out = validateOutput({ gapAnalysis: 'gap', tasks: [{ key: 'proj-1', title: 'Login', acceptanceCriteria: ['can log in'], tests: [{ tech: 'jest', title: 't' }] }] });
   assert.equal(out.tasks[0].key, 'PROJ-1'); // uppercased
