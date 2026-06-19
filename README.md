@@ -457,7 +457,7 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 
 **Traceability — pending:**
 - [x] Live Atlassian round-trip verification — `scripts/verify-atlassian.*` (read-only pull + dry-run push) + opt-in `test/atlassian.live.test.js` (skips without creds). See [Traceability guide](docs/TRACEABILITY.md#verifying-live-atlassian-access).
-- [ ] Portal visual QA in Chrome
+- [x] Portal visual QA — sample-dashboard generator (`node scripts/preview-rtm.mjs`, covers every state + regression + orphan) + a [visual-QA checklist](docs/VISUAL_QA.md) + static element check. Live in-browser eyeball is a documented manual step.
 - [ ] Portal auto-refresh (SSE) + file-watch re-trace
 - [ ] Jira label stamping (`publish.jira.verifiedLabel`)
 - [ ] Packaged n8n workflow JSON for scheduled regression runs

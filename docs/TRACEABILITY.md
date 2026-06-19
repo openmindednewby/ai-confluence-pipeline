@@ -184,6 +184,9 @@ shows the latest *committed* run, `git pull`s on an interval). See
 
 Read-only mode flags: `acp trace serve --read-only [--pull] [--pull-interval 60]`.
 
+To eyeball the dashboard without a real repo, generate sample dashboards (`node scripts/preview-rtm.mjs`)
+and follow [docs/VISUAL_QA.md](VISUAL_QA.md).
+
 ## Trigger it from anywhere
 
 Same engine, four front doors — all honour the same config:
