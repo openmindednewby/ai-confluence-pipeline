@@ -79,6 +79,18 @@ acp push-folder ./out --dry-run    # show intended create/update actions, no cal
 
 (The flat forward command still works for epic + stories: `acp jira --epic ./out/epic.md --task ./out/task-*.md`.)
 
+### Interactive decisions (`acp questions`)
+
+Turn an open-questions markdown (mermaid flow + a QA checklist) into a self-contained interactive HTML
+(full guide: [QUESTIONS.md](QUESTIONS.md)).
+
+```bash
+acp questions open-questions.md          # → open-questions.html (mermaid inlined; offline)
+acp questions oq.md --out d.html --cdn   # CDN mermaid (smaller); --link references the vendored copy
+```
+
+Answer in a browser → Export .md (decisions + diagram) → `acp confluence --page answers.md`.
+
 ### Requirements traceability (`acp trace`)
 
 Link tests to requirements and report which requirements hold true at the current git commit
@@ -119,6 +131,7 @@ The server exposes two tools that take **raw markdown strings** (what an agent h
 | `jira_to_markdown` | **Reverse.** Pull a Jira Epic (+ Stories + Sub-tasks) into a markdown folder. Args: `epic`, `dir`, `recursive?`, `force?` (direct REST, needs `JIRA_*` in `.env`) |
 | `confluence_to_markdown` | **Reverse.** Pull a Confluence page (+ descendant pages) into a markdown folder. Args: `page`, `dir`, `recursive?`, `force?` (direct REST, needs `CONFLUENCE_*` in `.env`) |
 | `push_folder` | **Reverse re-publish.** Push a pulled folder (+ `acp-pull.json`) back, recursively (incl. sub-tasks / child pages). Args: `dir`, `dryRun?` (direct REST) |
+| `questions_to_html` | **Decisions.** Generate the interactive decision HTML from an open-questions markdown. Args: `input`, `out?`, `cdn?`. Returns where it wrote + question/edge counts + any unmapped Q's. |
 | `requirements_trace` | **Traceability.** Build the RTM from an `acp-trace.json`: which requirements are verified / failing / unverified / specified + drift + orphan tests + regressions vs the last run, at the current git commit. Args: `configPath?`, `format?` (`markdown`\|`json`), `run?` (re-run the suites first). Returns the report + structured stats. |
 
 ### Register in Claude Code

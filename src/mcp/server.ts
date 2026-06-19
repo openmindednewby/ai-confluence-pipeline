@@ -13,12 +13,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { dirname, resolve } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { publishJira } from '../core/jira.js';
 import { publishConfluence } from '../core/confluence.js';
 import { pullJira, pullConfluence } from '../core/pull.js';
 import { pushFolder } from '../core/push.js';
 import { loadTraceConfig } from '../core/trace/config.js';
 import { runTrace, renderAll } from '../core/trace/index.js';
+import { generateQuestions } from '../core/questions/generate.js';
 
 const server = new McpServer({ name: 'ai-confluence-pipeline', version: '0.1.0' });
 
@@ -239,6 +241,43 @@ server.registerTool(
       return {
         content: [{ type: 'text' as const, text }],
         structuredContent: report as unknown as Record<string, unknown>,
+      };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'questions_to_html',
+  {
+    title: 'Open questions → interactive decision HTML',
+    description:
+      'Generate a self-contained interactive decision/Q&A page from an open-questions markdown file ' +
+      '(a `## Flow overview` mermaid diagram + a `## Open questions (QA)` checklist whose questions ' +
+      'carry `Q<n>` tokens that also appear on diagram nodes). Stakeholders answer in a browser; the ' +
+      'bound nodes recolour, rejected branches dim, and answers export to markdown/JSON (which then ' +
+      'publish via markdown_to_confluence / markdown_to_jira). Writes the HTML and returns a summary.',
+    inputSchema: {
+      input: z.string().describe('Path to the open-questions markdown file.'),
+      out: z.string().optional().describe('Output HTML path (default: <input>.html).'),
+      cdn: z.boolean().optional().describe('Load mermaid from a CDN instead of inlining it (smaller file).'),
+    },
+  },
+  async (args) => {
+    try {
+      const md = readFileSync(args.input, 'utf8');
+      const outPath = args.out ?? args.input.replace(/\.md$/i, '.html');
+      const { html, data, unmapped } = generateQuestions(md, { mermaid: args.cdn ? 'cdn' : 'inline', outPath });
+      writeFileSync(outPath, html, 'utf8');
+      const lines = [
+        `Wrote ${outPath} — ${data.questions.length} question(s), ${data.edges.length} edges`,
+        unmapped.length ? `Unmapped: ${unmapped.map((n) => `Q${n}`).join(', ')}` : 'All questions mapped to a node.',
+        'Answer in a browser, Export .md, then publish with markdown_to_confluence.',
+      ];
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+        structuredContent: { out: outPath, questions: data.questions.length, edges: data.edges.length, unmapped },
       };
     } catch (err) {
       return errorResult(err);

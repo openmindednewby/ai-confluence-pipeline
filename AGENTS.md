@@ -25,6 +25,9 @@ The core conversion + REST logic lives in `src/core/` and is plain TypeScript wi
   (`acp pull-jira`, `acp pull-confluence`) + an `acp-pull.json` manifest.
 - **Push** an edited folder back recursively (`acp push-folder`).
 - **Mermaid** diagrams round-trip both ways (Jira code block / Confluence macro).
+- **Questions** — turn an open-questions markdown (mermaid flow + QA checklist) into a self-contained
+  interactive decision HTML (`acp questions`); exported answers + diagram publish via `acp confluence`.
+  See [docs/QUESTIONS.md](docs/QUESTIONS.md).
 - **Trace** — link tests ↔ requirements ↔ status at the current git commit (`acp trace`), re-run
   suites on demand (`--run`), record history + flag **regressions**, and serve a web portal with a Run
   button (`acp trace serve`). Trigger from CLI/CI, the portal, an agent (MCP `requirements_trace`), or
@@ -42,6 +45,7 @@ src/
     atlassian.ts          # direct REST client (Jira + Confluence), read + write
     *toMarkdown.ts / markdownTo*.ts   # ADF / storage ⇄ markdown converters
     pull.ts / push.ts     # reverse pull + recursive re-publish
+    questions/            # `acp questions` — open-questions md → interactive decision HTML
     trace/                # requirements traceability (see docs/TRACEABILITY.md)
       requirements/        #   providers: jira-epic / roadmap-html / confluence-page / markdown
       report/              #   markdown + self-contained HTML renderers
