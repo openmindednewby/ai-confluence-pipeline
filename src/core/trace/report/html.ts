@@ -43,9 +43,10 @@ function row(r: TracedRequirement, regressedFrom?: RequirementState): string {
       r.tests.map((t) => `<li><code>${esc(t.file)}${t.line ? `:${t.line}` : ''}</code> <span class="via">${esc(t.via)}</span></li>`).join('') +
       '</ul></details>'
     : '';
+  const runBtn = r.tests.length ? ` <button class="rowrun" data-key="${esc(r.key)}" title="Run this requirement's tests">▶</button>` : '';
   return (
     `<tr data-state="${r.state}" data-drift="${r.drift}" data-regressed="${regressed}" data-stale="${r.stale}" data-search="${search}">` +
-    `<td class="key">${keyCell(r)}${drift}</td>` +
+    `<td class="key">${keyCell(r)}${drift}${runBtn}</td>` +
     `<td>${esc(r.title)}${testList}</td>` +
     `<td>${esc(r.declaredStatus ?? '—')}</td>` +
     `<td>${pill(r.state)}${wasMarker}${staleMarker}</td>` +
@@ -127,6 +128,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}.key{font-family:ui-mo
 .banner{margin-bottom:16px;padding:12px 16px;background:#fff5f5;border:1px solid #ffc1c1;border-left:4px solid #cf222e;border-radius:8px}
 .banner h2{font-size:15px;margin:0 0 6px;color:#cf222e}.banner ul{margin:0;padding-left:18px}.banner code{background:#fff;padding:1px 5px;border-radius:4px}
 .was{display:inline-block;margin-left:6px;font-size:11px;color:#cf222e;font-weight:600}
+.rowrun{display:none;border:1px solid #d0d7de;background:#fff;border-radius:5px;font-size:11px;line-height:1;padding:2px 5px;cursor:pointer;color:#1a7f37}
+.rowrun:hover{background:#f0fff4}.rowrun:disabled{opacity:.5}
 .stale{display:inline-block;margin-left:6px;font-size:11px;color:#8250df;font-weight:600}
 .tests{margin-top:3px}.tests summary{cursor:pointer;font-size:12px;color:#0969da}
 .tests ul{margin:4px 0 0;padding-left:16px}.tests li{font-size:12px;margin:1px 0}

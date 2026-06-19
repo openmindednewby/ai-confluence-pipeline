@@ -474,6 +474,10 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 - [x] Portal depth — per-requirement drill-down (tests/files), run permalinks (`GET /runs/<snapshot>`), a coverage-trend sparkline, and `history.keep` retention (old snapshots pruned on save).
 - [x] One-command org onboarding — `acp trace init --all` generates a portal token (`.env`) + an always-on compose service + a PR GitHub Action; [docs/ONBOARDING.md](docs/ONBOARDING.md) is the 5-minute guide.
 
+**Traceability — dashboard test triggering:**
+- [x] Trigger tests from the dashboard — the Run button executes all suites; a **▶ per requirement** runs only its tagged tests (`--grep`/`-t`/`--filter`, surgical via snapshot/restore so siblings are untouched); a **▶ per suite** runs one group.
+- [ ] Live run status/output — spinner on the triggered row(s) + stream the command's stdout over SSE.
+
 **Next up:**
 - **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing
 - **Confluence page templates** — polished layouts with macros, panels, and TOC per template type

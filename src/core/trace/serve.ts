@@ -16,6 +16,7 @@ import type { TraceConfig } from './config.js';
 import { loadTraceConfig } from './config.js';
 import { listRuns, loadPreviousRun, loadRun } from './history.js';
 import { runTrace } from './index.js';
+import { runRequirement, runSuite } from './triggers.js';
 import { publishConfluenceReport, stampJiraLabels, updateRoadmapSection, writeOutputs } from './publish.js';
 import { shouldNotify, sendNotification } from './notify.js';
 import { renderHtml } from './report/html.js';
@@ -103,6 +104,7 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
   const isPublic = Boolean(opts.public);
   const historyDir = historyDirOf(config, baseDir);
   const repoDir = rel(baseDir, config.repoDir ?? '.');
+  const suites = [...new Set(config.scopes.flatMap((s) => s.tests).filter((t) => t.command).map((t) => t.tech))];
 
   // The report currently shown. Live mode recomputes on POST /run; read-only reads committed runs.
   let current: TraceReport | null = readOnly && historyDir ? loadPreviousRun(historyDir) : null;
@@ -160,7 +162,7 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
       if (readOnly && historyDir) current = loadPreviousRun(historyDir) ?? current;
       // Remember the token in a cookie so the dashboard's fetch()/EventSource carry it on reload.
       const headers: Record<string, string> = token ? { 'Set-Cookie': `rtm_token=${token}; HttpOnly; SameSite=Strict; Path=/` } : {};
-      return sendHtml(res, portalPage(current as TraceReport, runsFor(historyDir), { readOnly, live: true, trend: trendFor(historyDir) }), headers);
+      return sendHtml(res, portalPage(current as TraceReport, runsFor(historyDir), { readOnly, live: true, trend: trendFor(historyDir), suites }), headers);
     }
     // Permalink to a historical run snapshot (read-only, no auto-refresh).
     if (req.method === 'GET' && url.pathname.startsWith('/runs/')) {
@@ -178,7 +180,13 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
     if (key === 'GET /api/runs') return sendJson(res, 200, { runs: runsFor(historyDir) });
     if (key === 'POST /run') {
       if (readOnly) return sendJson(res, 403, { error: 'read-only dashboard — runs happen on each developer machine' });
-      const report = await runTrace(config, baseDir, { run: url.searchParams.get('run') === '1', save: true, compare: true });
+      const reqKey = url.searchParams.get('key');
+      const suite = url.searchParams.get('suite');
+      const report = reqKey
+        ? await runRequirement(config, baseDir, reqKey) // run only this requirement's tagged tests
+        : suite
+          ? await runSuite(config, baseDir, suite) // run just this suite
+          : await runTrace(config, baseDir, { run: url.searchParams.get('run') === '1', save: true, compare: true });
       applySinks(report, config, baseDir, url.searchParams.get('publish') === '1', url.searchParams.get('stamp') === '1');
       setCurrent(report);
       return sendJson(res, 200, { ok: true, stats: report.stats, regressions: report.regressions ?? [] });
@@ -234,13 +242,23 @@ const PORTAL_STYLE = `
 .run-opt{font-size:13px;color:#57606a}.portal-links a{font-size:13px;color:#0969da}
 .runs{font-size:13px}.runs ul{margin:6px 0 0;padding-left:18px;max-height:160px;overflow:auto}
 .runs code{font-family:ui-monospace,Menlo,Consolas,monospace}.runs a{color:#0969da;text-decoration:none}
-.spark{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1a7f37;font-weight:600}`;
+.spark{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1a7f37;font-weight:600}
+.rowrun{display:inline-block !important}
+.suiterun{border:1px solid #d0d7de;background:#fff;border-radius:6px;font-size:12px;padding:4px 9px;cursor:pointer;color:#1a7f37}
+.suiterun:hover{background:#f0fff4}.suiterun:disabled{opacity:.5}.suites{display:inline-flex;gap:6px;flex-wrap:wrap}`;
 
 const PORTAL_SCRIPT = `
 const btn=document.getElementById('rtm-run'),chk=document.getElementById('rtm-suites');
 btn&&btn.addEventListener('click',async()=>{btn.disabled=true;btn.textContent='Running…';
   try{await fetch('/run'+(chk&&chk.checked?'?run=1':''),{method:'POST'});location.reload();}
-  catch(e){btn.textContent='Run failed — retry';btn.disabled=false;}});`;
+  catch(e){btn.textContent='Run failed — retry';btn.disabled=false;}});
+// Granular triggers: per-requirement ▶ (run only its tagged tests) and per-suite ▶.
+document.addEventListener('click',async(ev)=>{
+  const t=ev.target.closest&&(ev.target.closest('.rowrun')||ev.target.closest('.suiterun'));if(!t)return;
+  const q=t.classList.contains('rowrun')?'key='+encodeURIComponent(t.dataset.key):'suite='+encodeURIComponent(t.dataset.suite);
+  t.disabled=true;const o=t.textContent;t.textContent='⏳';
+  try{await fetch('/run?run=1&'+q,{method:'POST'});location.reload();}
+  catch(e){t.textContent='!';t.disabled=false;}});`;
 
 // Auto-refresh: reload when the server signals the report changed (a run, a watch tick, a pull).
 const SSE_SCRIPT = `try{const es=new EventSource('/events');es.onmessage=()=>location.reload();}catch(_){}`;
@@ -260,15 +278,19 @@ function sparkline(trend: number[]): string {
 export function portalPage(
   report: TraceReport,
   runs: string[],
-  opts: { readOnly?: boolean; live?: boolean; trend?: number[] } = {},
+  opts: { readOnly?: boolean; live?: boolean; trend?: number[]; suites?: string[] } = {},
 ): string {
   const runsList = runs.length
     ? runs.map((r) => { const e = r.replace(/</g, '&lt;'); return `<li><a href="/runs/${encodeURIComponent(r)}"><code>${e}</code></a></li>`; }).join('')
     : '<li>(no history yet)</li>';
+  const suiteBtns = !opts.readOnly && opts.suites && opts.suites.length
+    ? `<span class="suites">${opts.suites.map((s) => `<button class="suiterun" data-suite="${s.replace(/[^a-z0-9]/gi, '')}" title="Run the ${s} suite">▶ ${s.replace(/</g, '&lt;')}</button>`).join('')}</span>`
+    : '';
   const control = opts.readOnly
     ? '<span class="ro-badge">● read-only · git-backed</span>'
     : '<button id="rtm-run" class="run-btn">▶ Run</button>' +
-      '<label class="run-opt"><input type="checkbox" id="rtm-suites"> execute test suites</label>';
+      '<label class="run-opt"><input type="checkbox" id="rtm-suites"> execute test suites</label>' +
+      suiteBtns;
   const toolbar =
     '<div class="portal">' +
     control +

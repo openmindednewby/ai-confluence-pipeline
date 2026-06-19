@@ -181,7 +181,14 @@ acp trace serve --config acp-trace.json --port 8787   # http://127.0.0.1:8787
 | `GET /api/report` | the current report as JSON |
 | `GET /api/runs` | recent run snapshot filenames |
 | `GET /events` | Server-Sent Events stream; emits `changed` when the report changes |
-| `POST /run` | trigger a run. `?run=1` executes the suites; `?publish=1` also updates the Confluence page. Writes the configured outputs + roadmap section. |
+| `POST /run` | trigger a run. `?run=1` executes the suites; `?key=PROJ-1` runs only that requirement's tagged tests; `?suite=playwright` runs just that suite; `?publish=1` updates Confluence. Writes the configured outputs + roadmap section. |
+
+**Trigger tests from the dashboard.** With a `command` set per test group, the **Run** button (tick
+"execute test suites") runs every suite. For finer control, each requirement row has a **▶** that runs
+only *its* tagged tests (`--grep "@KEY"` / `-t` / `--filter`), and the toolbar has a **▶ per suite**.
+A per-requirement run is surgical: result files are snapshotted, the filtered run is read for that one
+key, the files are restored, and only that key's row updates — siblings are untouched. (Running is
+disabled on the read-only team dashboard.)
 
 The dashboard **auto-refreshes**: it subscribes to `/events` and reloads whenever the report changes —
 from a `POST /run` (even one triggered by n8n/CI), a `--watch` re-trace, or a read-only `--pull`. Add
