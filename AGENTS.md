@@ -121,4 +121,5 @@ For an agent to deploy autonomously, use the paste-ready prompts in
 | Use the CLI / MCP | [docs/CLI_AND_MCP.md](docs/CLI_AND_MCP.md) |
 | Deploy on Docker | [docs/DEPLOY.md](docs/DEPLOY.md) |
 | Understand traceability | [docs/TRACEABILITY.md](docs/TRACEABILITY.md) |
+| Onboard a team to traceability | [docs/ONBOARDING.md](docs/ONBOARDING.md) (`acp trace init --all`) |
 | Have an agent deploy it | [docs/DEPLOY_PROMPT.md](docs/DEPLOY_PROMPT.md) |

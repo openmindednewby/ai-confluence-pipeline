@@ -327,7 +327,11 @@ doc, or publish to Confluence.
 acp trace init                       # autodetect frameworks + requirements → acp-trace.json
 acp trace serve                      # web portal: live dashboard + a Run button + history
 acp trace --run --fail-on regression # CI: re-run suites, trace, fail on any regression vs last run
+# whole team in one command (token + always-on compose + PR GitHub Action):
+acp trace init --all && docker compose -f docker-compose.trace.yml up -d
 ```
+
+New here? **[docs/ONBOARDING.md](docs/ONBOARDING.md)** is the 5-minute setup (solo + team).
 
 Re-run on demand from the **portal**, the **CLI/CI**, an **agent** (MCP `requirements_trace`), or an
 **n8n webhook** (`POST /run`). Each run is saved git-stamped to `runs/` and diffed against the previous
@@ -467,7 +471,7 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 - [x] Stale-results guard — ⏳ flags a requirement whose result predates its covering tests or the current commit (`--fail-on stale`), so an outdated green never reads as fresh truth.
 - [x] Regression notifications — `--notify <webhook>` / `notify` config (Slack/Teams/generic, on regression/failing/stale/always) + a copy-paste [GitHub Action](docs/ci/rtm-github-action.yml) that runs the suites, fails the PR on a regression, and comments the RTM.
 - [x] Portal depth — per-requirement drill-down (tests/files), run permalinks (`GET /runs/<snapshot>`), a coverage-trend sparkline, and `history.keep` retention (old snapshots pruned on save).
-- [ ] One-command org onboarding (generate token + scaffold compose + CI; "5-minute setup")
+- [x] One-command org onboarding — `acp trace init --all` generates a portal token (`.env`) + an always-on compose service + a PR GitHub Action; [docs/ONBOARDING.md](docs/ONBOARDING.md) is the 5-minute guide.
 
 **Next up:**
 - **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing
