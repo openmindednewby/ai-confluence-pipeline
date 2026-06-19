@@ -60,6 +60,8 @@ const scopeSchema = z.object({
   requirements: z.array(requirementSourceSchema).min(1),
   tests: z.array(testSourceSchema).default([]),
   mapping: z.string().optional(),
+  /** Globs of implementation code to scan for `@KEY` tags → "referenced in code?" (gap analysis). */
+  code: z.array(z.string()).optional(),
 });
 
 export const traceConfigSchema = z.object({
