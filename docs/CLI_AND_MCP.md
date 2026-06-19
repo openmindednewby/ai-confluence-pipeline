@@ -98,7 +98,9 @@ acp trace --config acp-trace.json --publish-confluence           # update the co
 `--roadmap`/`--section`, `--publish-confluence`, `--stamp-jira` (label verified Jira issues),
 `--fail-on none|regression|drift|failing`.
 `acp trace serve` flags: `--config`, `--port`, `--host`, `--watch`/`--interval` (auto-refresh as
-results change), `--read-only`/`--pull`/`--pull-interval` (git-backed team dashboard).
+results change), `--read-only`/`--pull`/`--pull-interval` (git-backed team dashboard),
+`--token`/`--public` (shared-secret auth — required before exposing the portal beyond localhost; or
+set `RTM_TOKEN`).
 `acp trace init` flags: `--project`, `--jira-epic`/`--markdown`/`--roadmap`/`--confluence-page` (skip
 autodetect), `--template`, `--out`, `--force`.
 

@@ -462,6 +462,13 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 - [x] Jira label stamping — `acp trace --stamp-jira` (or portal `POST /run?stamp=1`) adds `publish.jira.verifiedLabel` to verified Jira issues and removes it when they regress (other labels untouched).
 - [x] Packaged n8n workflow JSON for scheduled regression runs — [`workflows/rtm-scheduled-regression.json`](workflows/rtm-scheduled-regression.json) (nightly `POST /run?run=1` → branch on `stats.regressions`).
 
+**Traceability — hardening & adoption (in progress):**
+- [x] Portal auth — `--token`/`RTM_TOKEN` (Bearer / `?token=` / cookie) + `--public` for read-only views; compose deploy is safe once `RTM_TOKEN` is set.
+- [ ] Stale-results guard — flag requirements whose results predate the code (prevent false greens)
+- [ ] Regression notifications (`--notify <webhook>`) + a GitHub Action that comments on the PR
+- [ ] Portal depth (per-requirement drill-down, run permalinks, coverage trend) + `runs/` retention
+- [ ] One-command org onboarding (generate token + scaffold compose + CI; "5-minute setup")
+
 **Next up:**
 - **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing
 - **Confluence page templates** — polished layouts with macros, panels, and TOC per template type
