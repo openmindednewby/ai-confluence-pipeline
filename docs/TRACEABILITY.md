@@ -242,6 +242,25 @@ Each run can also refresh where humans/agents look: it writes `output.*`, folds 
 and (with `?publish=1` / `--publish-confluence`) updates the Confluence page — so Jira/Confluence/local
 md all stay current automatically.
 
+## Shared results backend (collector)
+
+For a central server of record **without Jira/Confluence**, run the collector. It receives reports that
+projects POST via `output.post`, stores them per project, and serves an aggregated dashboard.
+
+```bash
+acp trace collector --port 9000 --token "$RTM_TOKEN"      # the server (one place for all projects)
+# each project / CI run posts to it:
+acp trace --run --post http://collector:9000/ingest       # or set output.post in the config
+```
+
+- `POST /ingest` (token-gated) stores the report under `collector-data/<project>/`.
+- `GET /` is the overview — every project with its coverage / verified / failing / commit / last-updated.
+- `GET /p/<project>` is that project's full dashboard; `/p/<project>/runs/<snapshot>` are permalinks.
+- `--public` opens viewing (ingest still needs the token); `--keep N` caps stored runs per project.
+
+So: **local files** (`output.json`/`runs/`), **git** (committed snapshots + the read-only dashboard),
+**or this collector** — pick whichever "where do results live" fits the company.
+
 ## Notifications
 
 Push a message to a webhook (Slack / Teams / any JSON endpoint) so a regression reaches a human:

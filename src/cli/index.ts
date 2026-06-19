@@ -18,6 +18,7 @@ import { autodetect, REQUIREMENTS_STUB } from '../core/trace/autodetect.js';
 import { scaffoldOrg } from '../core/trace/scaffold.js';
 import { runTrace } from '../core/trace/index.js';
 import { serve } from '../core/trace/serve.js';
+import { serveCollector } from '../core/trace/collector.js';
 import { generateQuestions } from '../core/questions/generate.js';
 import { writeOutputs, updateRoadmapSection, publishConfluenceReport, stampJiraLabels, postReport } from '../core/trace/publish.js';
 import { shouldNotify, sendNotification } from '../core/trace/notify.js';
@@ -307,6 +308,30 @@ traceCmd
         watchIntervalSec: opts.interval,
         token: opts.token ?? process.env.RTM_TOKEN,
         public: opts.public,
+      });
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+traceCmd
+  .command('collector')
+  .description('Run a shared results backend: receives reports (POST /ingest) from every dev/CI and serves an aggregated dashboard.')
+  .option('--port <n>', 'port (default 9000)', (v) => parseInt(v, 10))
+  .option('--host <host>', 'bind host (default 0.0.0.0)')
+  .option('--dir <path>', 'where to store posted reports (default collector-data)')
+  .option('--token <secret>', 'require this secret to POST /ingest (and to view, unless --public); or RTM_TOKEN')
+  .option('--public', 'allow viewing without the token (ingest still requires it)', false)
+  .option('--keep <n>', 'cap stored runs per project', (v) => parseInt(v, 10))
+  .action(async (opts) => {
+    try {
+      await serveCollector({
+        port: opts.port,
+        host: opts.host,
+        dir: opts.dir,
+        token: opts.token ?? process.env.RTM_TOKEN,
+        public: opts.public,
+        keep: opts.keep,
       });
     } catch (err) {
       fail(err);

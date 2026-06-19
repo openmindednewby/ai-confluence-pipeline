@@ -454,11 +454,11 @@ Full backlog in [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md). At a glance:
 - **Requirements traceability + regression pipeline** — `acp trace`: links tests ↔ requirements ↔ status at each git commit; run history + regression/stale detection; a secured web portal (`acp trace serve`) with **▶ run** buttons (per requirement / per suite) and live output; autodetect onboarding; notifications + a PR GitHub Action; always-on local + git-backed team dashboards. **[Traceability](docs/TRACEABILITY.md)** · **[5-minute onboarding](docs/ONBOARDING.md)**
 - **Browser UI workbench** + 13 prompt templates + team profiles (the original AI-publishing flow).
 
-### 🌐 Company-agnostic (works without Jira) — in progress
+### 🌐 Company-agnostic (works without Jira)
 - [x] **Store results anywhere** — local files (`runs/`, `RTM.*`) **or** POST the full report to your own server (`output.post` / `--post`); Jira/Confluence are optional sinks.
 - [x] **Requirements from GitHub/GitLab issues** — `github-issues` / `gitlab-issues` sources (by label/milestone; open/closed → status; keyed `GH-<n>`/`GL-<iid>`), so non-Jira teams trace against their issue tracker.
 - [x] **Pluggable + stack profiles** — a `command` requirement source (run any script → requirements, no fork) + `acp trace init --profile github|gitlab|jira|confluence|markdown|command` starter configs.
-- [ ] Self-hosted collector server that aggregates every dev/CI run
+- [x] **Self-hosted collector** — `acp trace collector` receives every dev/CI run (`POST /ingest`) and serves an aggregated multi-project dashboard. A server of record with no Jira.
 
 ### 🔑 Needs your account / browser — tooling is built, just run it
 - **Live Atlassian round-trip** — put `JIRA_*` / `CONFLUENCE_*` in `.env`, then `scripts/verify-atlassian.sh PROJ-12`.

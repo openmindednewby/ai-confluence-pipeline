@@ -113,6 +113,11 @@ acp trace --config acp-trace.json --publish-confluence           # update the co
 results change), `--read-only`/`--pull`/`--pull-interval` (git-backed team dashboard),
 `--token`/`--public` (shared-secret auth — required before exposing the portal beyond localhost; or
 set `RTM_TOKEN`).
+
+`acp trace collector` — a shared results backend: receives reports (`POST /ingest`) from every dev/CI
+run and serves an aggregated multi-project dashboard (server of record, no Jira needed). Flags:
+`--port`, `--host`, `--dir`, `--token`/`--public`, `--keep`. Projects post to it via `output.post` /
+`--post http://collector:9000/ingest`.
 `acp trace init` flags: `--project`, `--profile github|gitlab|jira|confluence|markdown|command`,
 `--jira-epic`/`--markdown`/`--roadmap`/`--confluence-page` (skip autodetect), `--all` (org setup: token
 + compose + PR Action — see [ONBOARDING.md](ONBOARDING.md)), `--template`, `--out`, `--force`.
