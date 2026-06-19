@@ -1,0 +1,147 @@
+/**
+ * `acp trace collector` — a self-hosted server of record. It RECEIVES reports posted by `output.post`
+ * (from every dev / CI run), stores them per project, and serves an aggregated read-only dashboard.
+ * This is the "store results on a server" path for teams that don't use Jira/Confluence: central
+ * storage + a team overview, fed by HTTP POSTs instead of git.
+ */
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { listRuns, loadPreviousRun, loadRun, saveRun } from './history.js';
+import { renderHtml } from './report/html.js';
+import type { TraceReport } from './types.js';
+
+export interface CollectorOptions {
+  port?: number;
+  host?: string;
+  /** Directory where posted reports are stored (per project). */
+  dir?: string;
+  /** Shared secret required to POST /ingest (and to view, unless --public). */
+  token?: string;
+  /** Allow viewing without the token (ingest still requires it). */
+  public?: boolean;
+  /** Cap stored runs per project. */
+  keep?: number;
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'default';
+}
+
+function projects(dir: string): string[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  } catch {
+    return [];
+  }
+}
+
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((ok, no) => {
+    let b = '';
+    req.on('data', (c) => {
+      b += c;
+      if (b.length > 64 * 1024 * 1024) no(new Error('payload too large'));
+    });
+    req.on('end', () => ok(b));
+    req.on('error', no);
+  });
+}
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Aggregate index: one row per project with its latest status. */
+function indexPage(dir: string): string {
+  const rows = projects(dir).map((slug) => {
+    const r = loadPreviousRun(join(dir, slug));
+    if (!r) return `<tr><td>${esc(slug)}</td><td colspan="5">(no runs)</td></tr>`;
+    const s = r.stats;
+    const reg = s.regressions ? ` ⛔${s.regressions}` : '';
+    return (
+      `<tr><td><a href="/p/${encodeURIComponent(slug)}">${esc(r.project ?? slug)}</a></td>` +
+      `<td>${s.coveragePct}%</td><td>${s.verified}/${s.total}</td><td>${s.failing}</td>` +
+      `<td>${esc(r.git.shortSha ?? '—')}${reg}</td><td>${esc(r.generatedAt.slice(0, 16).replace('T', ' '))}</td></tr>`
+    );
+  });
+  const body = rows.length ? rows.join('') : '<tr><td colspan="6">No reports yet — point a project\'s <code>output.post</code> at <code>/ingest</code>.</td></tr>';
+  return (
+    '<!doctype html><html><head><meta charset="utf-8"><title>RTM collector</title>' +
+    '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:32px;color:#24292f}' +
+    'h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #eaeef2}' +
+    'th{background:#f6f8fa;font-size:12px;text-transform:uppercase;color:#57606a}a{color:#0969da}</style></head><body>' +
+    '<h1>Requirements Traceability — all projects</h1>' +
+    '<table><thead><tr><th>Project</th><th>Coverage</th><th>Verified</th><th>Failing</th><th>Commit</th><th>Updated</th></tr></thead>' +
+    `<tbody>${body}</tbody></table></body></html>`
+  );
+}
+
+function isReport(x: unknown): x is TraceReport {
+  return Boolean(x) && typeof x === 'object' && Array.isArray((x as TraceReport).requirements) && Boolean((x as TraceReport).stats);
+}
+
+/** Start the collector. Resolves with the listening server. */
+export async function serveCollector(opts: CollectorOptions = {}): Promise<Server> {
+  const port = opts.port ?? 9000;
+  const host = opts.host ?? '0.0.0.0';
+  const dir = opts.dir ?? 'collector-data';
+  const token = opts.token && opts.token.length ? opts.token : undefined;
+  const isPublic = Boolean(opts.public);
+
+  function authed(req: IncomingMessage, url: URL): boolean {
+    if (!token) return true;
+    if (req.headers.authorization === `Bearer ${token}`) return true;
+    if (url.searchParams.get('token') === token) return true;
+    return (req.headers.cookie ?? '').split(';').some((p) => p.trim() === `rtm_token=${token}`);
+  }
+
+  const server = createServer((req, res) => {
+    route(req, res).catch((err) => json(res, 500, { error: err instanceof Error ? err.message : String(err) }));
+  });
+  await new Promise<void>((ok) => server.listen(port, host, ok));
+  process.stdout.write(`\n  RTM collector: http://${host}:${port}  (store: ${dir})\n  POST /ingest a report (Authorization: Bearer <token>)  ·  GET / for the overview\n`);
+
+  async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    const key = `${req.method} ${url.pathname}`;
+
+    if (key === 'POST /ingest') {
+      if (token && !authed(req, url)) return json(res, 401, { error: 'unauthorized' });
+      const report = JSON.parse(await readBody(req)) as unknown;
+      if (!isReport(report)) return json(res, 400, { error: 'not a trace report (need requirements[] + stats)' });
+      const slug = slugify(report.project ?? 'default');
+      const path = saveRun(report, join(dir, slug));
+      return json(res, 200, { ok: true, project: slug, stored: path.split(/[\\/]/).pop() });
+    }
+    // Views (optionally token-gated)
+    if (token && !authed(req, url) && !isPublic) return json(res, 401, { error: 'unauthorized — append ?token=' });
+    if (key === 'GET /' || key === 'GET /index.html') return html(res, indexPage(dir));
+    if (key === 'GET /api/projects') return json(res, 200, { projects: projects(dir) });
+
+    const view = url.pathname.match(/^\/p\/([^/]+)(?:\/runs\/([^/]+))?$/);
+    if (req.method === 'GET' && view) {
+      const slug = decodeURIComponent(view[1]);
+      const file = view[2];
+      if (file && (file.includes('..') || !file.endsWith('.json'))) return json(res, 404, { error: 'not found' });
+      const report = file ? loadRun(join(dir, slug, file)) : loadPreviousRun(join(dir, slug));
+      if (!report) return json(res, 404, { error: 'no report' });
+      const runs = listRuns(join(dir, slug)).map((p) => p.split(/[\\/]/).pop() as string).reverse().slice(0, 20);
+      const histLinks = runs.map((r) => `<a href="/p/${encodeURIComponent(slug)}/runs/${encodeURIComponent(r)}">${esc(r.slice(0, 19))}</a>`).join(' · ');
+      const back = `<div style="margin:12px 18px"><a href="/">← all projects</a> · history: ${histLinks}</div>`;
+      return html(res, renderHtml(report).replace('<div class="wrap">', `${back}<div class="wrap">`));
+    }
+    json(res, 404, { error: `no route: ${key}` });
+  }
+
+  return server;
+}
+
+function html(res: ServerResponse, body: string): void {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(body);
+}
+function json(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(body));
+}
