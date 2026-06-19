@@ -15,6 +15,7 @@ import { pushFolder } from '../core/push.js';
 import { getConfig } from '../core/config.js';
 import { loadTraceConfig, starterConfig, DEFAULT_CONFIG_FILENAME } from '../core/trace/config.js';
 import { autodetect, REQUIREMENTS_STUB } from '../core/trace/autodetect.js';
+import { scaffoldOrg } from '../core/trace/scaffold.js';
 import { runTrace } from '../core/trace/index.js';
 import { serve } from '../core/trace/serve.js';
 import { writeOutputs, updateRoadmapSection, publishConfluenceReport, stampJiraLabels } from '../core/trace/publish.js';
@@ -290,6 +291,7 @@ traceCmd
   .option('--roadmap <path>', 'requirement source: a roadmap HTML file (skips autodetect)')
   .option('--confluence-page <id>', 'requirement source: a Confluence page id (skips autodetect)')
   .option('--template', 'write a plain template instead of autodetecting', false)
+  .option('--all', 'org setup: also generate a portal token (.env) + compose service + PR GitHub Action', false)
   .option('--force', 'overwrite an existing config', false)
   .action((opts) => {
     try {
@@ -322,7 +324,22 @@ traceCmd
         }
       }
       writeFileSync(out, `${JSON.stringify(plan.config, null, 2)}\n`, 'utf8');
-      process.stdout.write(`\n  Wrote ${opts.out}\n  Next:  acp trace serve --config ${opts.out}   (or: acp trace --config ${opts.out} --run)\n`);
+      process.stdout.write(`\n  Wrote ${opts.out}\n`);
+
+      if (opts.all) {
+        const s = scaffoldOrg(repoDir, opts.force);
+        s.written.forEach((f) => process.stdout.write(`  + ${f.replace(`${repoDir}\\`, '').replace(`${repoDir}/`, '')}\n`));
+        s.skipped.forEach((f) => process.stdout.write(`  · kept existing ${f.replace(`${repoDir}\\`, '').replace(`${repoDir}/`, '')}\n`));
+        process.stdout.write(`  + .env RTM_TOKEN (${s.tokenCreated ? 'generated' : 'existing'})\n`);
+        process.stdout.write('\n  Org setup ready. Start the always-on portal:\n');
+        process.stdout.write('    docker compose -f docker-compose.trace.yml up -d\n');
+        process.stdout.write(`    open  http://localhost:8787/?token=${s.token}\n`);
+        process.stdout.write('  PR checks: commit .github/workflows/rtm.yml. Local dev: acp trace serve\n');
+        return;
+      }
+
+      process.stdout.write(`  Next:  acp trace serve --config ${opts.out}   (or: acp trace --config ${opts.out} --run)\n`);
+      process.stdout.write('  Org setup (token + compose + CI) in one go:  acp trace init --all\n');
     } catch (err) {
       fail(err);
     }
