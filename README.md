@@ -455,12 +455,12 @@ See [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) for the full roadmap.
 - **Browser UI workbench** — reusable templates, named sessions, a rolling 10-deep auto-history, undo/redo, and multi-tab-safe shared storage (independent tabs, shared library). See **[Workbench guide](docs/SESSIONS.md)**.
 - **Requirements traceability + regression pipeline** — `acp trace` links tests (Playwright/Jest/Vitest/node/xUnit) ↔ requirements (Jira/roadmap/Confluence/markdown) ↔ status at the current git commit; optional suite execution (`--run`), git-stamped run history + **regression** detection, a built-in web portal (`acp trace serve`) with a Run button, all-surface triggers (CLI/CI, portal, MCP, n8n webhook), autodetect onboarding (`acp trace init`), and always-on deploy (local + git-backed team dashboard). See **[Traceability guide](docs/TRACEABILITY.md)**.
 
-**Traceability — pending:**
+**Traceability — recently shipped:**
 - [x] Live Atlassian round-trip verification — `scripts/verify-atlassian.*` (read-only pull + dry-run push) + opt-in `test/atlassian.live.test.js` (skips without creds). See [Traceability guide](docs/TRACEABILITY.md#verifying-live-atlassian-access).
 - [x] Portal visual QA — sample-dashboard generator (`node scripts/preview-rtm.mjs`, covers every state + regression + orphan) + a [visual-QA checklist](docs/VISUAL_QA.md) + static element check. Live in-browser eyeball is a documented manual step.
 - [x] Portal auto-refresh (SSE `/events`) + `--watch` re-trace — the dashboard reloads itself on any run (incl. n8n/CI-triggered), a watch tick, or a read-only pull. Local compose service runs `--watch`.
 - [x] Jira label stamping — `acp trace --stamp-jira` (or portal `POST /run?stamp=1`) adds `publish.jira.verifiedLabel` to verified Jira issues and removes it when they regress (other labels untouched).
-- [ ] Packaged n8n workflow JSON for scheduled regression runs
+- [x] Packaged n8n workflow JSON for scheduled regression runs — [`workflows/rtm-scheduled-regression.json`](workflows/rtm-scheduled-regression.json) (nightly `POST /run?run=1` → branch on `stats.regressions`).
 
 **Next up:**
 - **Template routing in n8n** — wire the registry so `--template` flag selects the right prompt and output routing

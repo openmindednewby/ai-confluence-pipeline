@@ -68,12 +68,24 @@ Turned the static RTM into a re-runnable regression system (per user request):
   requirements source, writes a ready config + a `docs/requirements.md` stub.
 - 82/82 tests pass; typecheck clean; portal + run→save→diff + autodetect smoke-tested end-to-end.
 
-## Follow-ups (not in scope this pass)
-- Live Atlassian round-trip (no creds available here — Jira/Confluence fetch paths reuse the
-  already mock-tested REST client but weren't exercised against a real instance).
-- Jira label stamping of verified issues (schema field `publish.jira.verifiedLabel` reserved).
-- HTML dashboard visual QA in Chrome (extension not connected in this environment).
-- Optional: SSE/auto-refresh in the portal; a ready-made n8n workflow JSON for the scheduled trigger.
+## v3 — follow-ups CLEARED (all 5)
+Done one at a time, each with docs + README roadmap updated:
+1. **Live Atlassian verification** — `scripts/verify-atlassian.{sh,ps1}` (read-only pull + dry-run push)
+   + opt-in `test/atlassian.live.test.js` (skips without creds + `RTM_LIVE_EPIC`/`RTM_LIVE_PAGE`).
+2. **Portal visual QA** — `scripts/preview-rtm.mjs` sample generator (every state + regression + orphan)
+   + `docs/VISUAL_QA.md` checklist + static element check. (Live Chrome eyeball = documented manual step;
+   extension not connectable here.)
+3. **Auto-refresh + watch** — SSE `GET /events`; dashboard reloads on any change; `acp trace serve --watch`
+   re-traces on an interval; local compose runs `--watch`.
+4. **Jira label stamping** — `modifyIssueLabels` + `planJiraLabelStamp`/`stampJiraLabels`;
+   `acp trace --stamp-jira` / portal `POST /run?stamp=1`.
+5. **n8n scheduled regression** — `workflows/rtm-scheduled-regression.json` (nightly `POST /run?run=1`
+   → branch on `stats.regressions`).
+- 88 tests (86 pass, 2 skip-offline); typecheck clean. Commits d50eaab→(item5).
+
+## Still genuinely open (need external resources)
+- A full live Atlassian round-trip RUN (needs real creds) — tooling is ready, just unexercised here.
+- A live in-browser visual pass (needs a connected Chrome extension).
 
 ## Verification
 `npm test` (build + node --test). All pure/local pieces fixture-tested offline; Jira/Confluence providers reuse the mock-tested REST client.
