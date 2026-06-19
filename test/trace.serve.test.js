@@ -78,6 +78,53 @@ test('serve: live server answers /api/report, /api/runs, and POST /run', async (
   }
 });
 
+async function readUntil(reader, needle, ms) {
+  const dec = new TextDecoder();
+  let buf = '';
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const chunk = await Promise.race([
+      reader.read(),
+      new Promise((r) => setTimeout(() => r({ value: undefined, done: false }), 200)),
+    ]);
+    if (chunk.done) break;
+    if (chunk.value) buf += dec.decode(chunk.value, { stream: true });
+    if (buf.includes(needle)) return true;
+  }
+  return buf.includes(needle);
+}
+
+test('serve: /events pushes "changed" when a run changes the report (auto-refresh)', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-sse-'));
+  mkdirSync(join(root, 'e2e', 'results'), { recursive: true });
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'requirements.md'), '- [ ] PROJ-1 Login');
+  writeFileSync(join(root, 'e2e', 'login.spec.ts'), `test('login @PROJ-1', ...)`);
+  const junit = join(root, 'e2e', 'results', 'junit.xml');
+  writeFileSync(junit, `<testsuites><testsuite><testcase name="login @PROJ-1"></testcase></testsuite></testsuites>`);
+  writeFileSync(
+    join(root, 'acp-trace.json'),
+    JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [{ tech: 'playwright', globs: ['e2e/**/*.spec.ts'], results: ['e2e/results/*.xml'] }] }] }),
+  );
+
+  const port = 8913;
+  const server = await serve(join(root, 'acp-trace.json'), root, { port });
+  let reader;
+  try {
+    const base = `http://127.0.0.1:${port}`;
+    assert.match(await (await fetch(`${base}/`)).text(), /EventSource\('\/events'\)/); // page subscribes
+    const stream = await fetch(`${base}/events`);
+    reader = stream.body.getReader();
+    writeFileSync(junit, `<testsuites><testsuite><testcase name="login @PROJ-1"><failure/></testcase></testsuite></testsuites>`);
+    await fetch(`${base}/run`, { method: 'POST' }); // verified → failing → signature changes
+    assert.equal(await readUntil(reader, 'changed', 3000), true);
+  } finally {
+    if (reader) await reader.cancel().catch(() => {});
+    server.closeAllConnections?.();
+    await new Promise((ok) => server.close(ok));
+  }
+});
+
 test('serve --read-only: shows committed run, refuses POST /run', async () => {
   const root = mkdtempSync(join(tmpdir(), 'rtm-ro-'));
   mkdirSync(join(root, 'docs'), { recursive: true });
