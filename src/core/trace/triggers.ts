@@ -14,7 +14,7 @@ import { deriveState, recomputeStats } from './computeState.js';
 import { globFiles } from './glob.js';
 import { pruneRuns, saveRun } from './history.js';
 import { ingestResults } from './results.js';
-import { runCommand } from './runner.js';
+import { runCommandStream } from './runner.js';
 import { markStale } from './stale.js';
 import { DEFAULT_KEY_PATTERN } from './testScanner.js';
 import { runTrace } from './index.js';
@@ -52,15 +52,15 @@ function resultPathsOf(groups: TestSourceConfig[], repoDir: string): string[] {
 }
 
 /** Run just one tech's suite(s), fully, then re-trace from the refreshed results. */
-export async function runSuite(config: TraceConfig, baseDir: string, tech: string): Promise<TraceReport> {
+export async function runSuite(config: TraceConfig, baseDir: string, tech: string, onLine?: (l: string) => void): Promise<TraceReport> {
   const repoDir = repoDirOf(config, baseDir);
   const groups = groupsWithCommand(config).filter((t) => t.tech === tech);
-  for (const t of groups) runCommand({ tech: t.tech, command: t.command, cwd: t.cwd }, repoDir, () => Date.now());
+  for (const t of groups) await runCommandStream({ tech: t.tech, command: t.command, cwd: t.cwd }, repoDir, onLine);
   return runTrace(config, baseDir, { run: false, save: true, compare: true });
 }
 
 /** Run only `key`'s tagged tests; overlay just that key's fresh result without disturbing the rest. */
-export async function runRequirement(config: TraceConfig, baseDir: string, key: string): Promise<TraceReport> {
+export async function runRequirement(config: TraceConfig, baseDir: string, key: string, onLine?: (l: string) => void): Promise<TraceReport> {
   const repoDir = repoDirOf(config, baseDir);
   const keyPattern = config.keyPattern ?? DEFAULT_KEY_PATTERN;
   const upper = key.toUpperCase();
@@ -78,7 +78,7 @@ export async function runRequirement(config: TraceConfig, baseDir: string, key: 
 
   // 2. Run each suite restricted to this requirement's tag.
   for (const t of groups) {
-    runCommand({ tech: t.tech, command: `${t.command} ${filterArg(t.tech, upper)}`, cwd: t.cwd }, repoDir, () => Date.now());
+    await runCommandStream({ tech: t.tech, command: `${t.command} ${filterArg(t.tech, upper)}`, cwd: t.cwd }, repoDir, onLine);
   }
 
   // 3. Read the fresh result for this key from whatever the filtered run produced.

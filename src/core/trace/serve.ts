@@ -113,13 +113,19 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
   let version = signature(current as TraceReport);
   const clients = new Set<ServerResponse>();
 
-  /** Adopt a new report; if it actually changed, notify open dashboards to refresh. */
+  /** Send a named SSE event to every open dashboard. */
+  function broadcast(event: string, data: string): void {
+    const payload = `event: ${event}\ndata: ${data}\n\n`;
+    for (const res of clients) res.write(payload);
+  }
+
+  /** Adopt a new report; if it actually changed, tell dashboards to refresh. */
   function setCurrent(report: TraceReport): void {
     current = report;
     const sig = signature(report);
     if (sig === version) return;
     version = sig;
-    for (const res of clients) res.write('data: changed\n\n');
+    broadcast('changed', 'changed');
   }
 
   /** Re-derive the current report (read-only: latest committed run; live: a fresh ingest). */
@@ -182,14 +188,20 @@ export async function serve(configPath: string, baseDir: string, opts: ServeOpti
       if (readOnly) return sendJson(res, 403, { error: 'read-only dashboard — runs happen on each developer machine' });
       const reqKey = url.searchParams.get('key');
       const suite = url.searchParams.get('suite');
-      const report = reqKey
-        ? await runRequirement(config, baseDir, reqKey) // run only this requirement's tagged tests
-        : suite
-          ? await runSuite(config, baseDir, suite) // run just this suite
-          : await runTrace(config, baseDir, { run: url.searchParams.get('run') === '1', save: true, compare: true });
-      applySinks(report, config, baseDir, url.searchParams.get('publish') === '1', url.searchParams.get('stamp') === '1');
-      setCurrent(report);
-      return sendJson(res, 200, { ok: true, stats: report.stats, regressions: report.regressions ?? [] });
+      broadcast('running', JSON.stringify({ key: reqKey, suite }));
+      const onLine = (l: string) => broadcast('output', l.replace(/[\r\n]+/g, ' '));
+      try {
+        const report = reqKey
+          ? await runRequirement(config, baseDir, reqKey, onLine) // run only this requirement's tagged tests
+          : suite
+            ? await runSuite(config, baseDir, suite, onLine) // run just this suite
+            : await runTrace(config, baseDir, { run: url.searchParams.get('run') === '1', save: true, compare: true, onLine });
+        applySinks(report, config, baseDir, url.searchParams.get('publish') === '1', url.searchParams.get('stamp') === '1');
+        setCurrent(report);
+        return sendJson(res, 200, { ok: true, stats: report.stats, regressions: report.regressions ?? [] });
+      } finally {
+        broadcast('done', 'done');
+      }
     }
     sendJson(res, 404, { error: `no route: ${key}` });
   }
@@ -245,7 +257,11 @@ const PORTAL_STYLE = `
 .spark{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1a7f37;font-weight:600}
 .rowrun{display:inline-block !important}
 .suiterun{border:1px solid #d0d7de;background:#fff;border-radius:6px;font-size:12px;padding:4px 9px;cursor:pointer;color:#1a7f37}
-.suiterun:hover{background:#f0fff4}.suiterun:disabled{opacity:.5}.suites{display:inline-flex;gap:6px;flex-wrap:wrap}`;
+.suiterun:hover{background:#f0fff4}.suiterun:disabled{opacity:.5}.suites{display:inline-flex;gap:6px;flex-wrap:wrap}
+.live{position:fixed;right:14px;bottom:14px;width:440px;max-width:92vw;background:#0d1117;color:#c9d1d9;border-radius:8px;box-shadow:0 6px 24px #0007;z-index:50;overflow:hidden;display:none}
+.live .livehd{display:flex;justify-content:space-between;padding:7px 12px;background:#161b22;color:#58a6ff;font-weight:600;font-size:12px}
+.live .livehd button{background:none;border:0;color:#8b949e;cursor:pointer;font-size:13px}
+.live pre{margin:0;padding:8px 12px;max-height:220px;overflow:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}`;
 
 const PORTAL_SCRIPT = `
 const btn=document.getElementById('rtm-run'),chk=document.getElementById('rtm-suites');
@@ -260,8 +276,17 @@ document.addEventListener('click',async(ev)=>{
   try{await fetch('/run?run=1&'+q,{method:'POST'});location.reload();}
   catch(e){t.textContent='!';t.disabled=false;}});`;
 
-// Auto-refresh: reload when the server signals the report changed (a run, a watch tick, a pull).
-const SSE_SCRIPT = `try{const es=new EventSource('/events');es.onmessage=()=>location.reload();}catch(_){}`;
+// Live status: a panel shows the running command's output; the dashboard reloads when it finishes.
+const SSE_SCRIPT = `
+function rtmPanel(){let p=document.getElementById('rtm-live');if(!p){p=document.createElement('div');p.id='rtm-live';p.className='live';
+  p.innerHTML='<div class="livehd"><span id="rtm-live-hd">⏳ running…</span><button onclick="document.getElementById(\\'rtm-live\\').style.display=\\'none\\'">✕</button></div><pre></pre>';
+  document.body.appendChild(p);}return p;}
+try{const es=new EventSource('/events');
+  es.addEventListener('changed',()=>location.reload());
+  es.addEventListener('running',()=>{const p=rtmPanel();p.querySelector('pre').textContent='';p.querySelector('#rtm-live-hd').textContent='⏳ running…';p.style.display='block';});
+  es.addEventListener('output',(e)=>{const p=rtmPanel();const pre=p.querySelector('pre');pre.textContent+=e.data+'\\n';pre.scrollTop=pre.scrollHeight;});
+  es.addEventListener('done',()=>{const hd=document.querySelector('#rtm-live-hd');if(hd)hd.textContent='✓ done';});
+}catch(_){}`;
 
 /** A tiny inline SVG sparkline of coverage % across recent runs. */
 function sparkline(trend: number[]): string {
