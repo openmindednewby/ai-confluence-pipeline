@@ -17,7 +17,8 @@ import { loadTraceConfig, starterConfig, DEFAULT_CONFIG_FILENAME } from '../core
 import { autodetect, REQUIREMENTS_STUB } from '../core/trace/autodetect.js';
 import { scaffoldOrg } from '../core/trace/scaffold.js';
 import { scaffoldTest } from '../core/trace/scaffoldTest.js';
-import { runTrace, requirementStatus } from '../core/trace/index.js';
+import { runTrace, requirementStatus, gatherRequirements } from '../core/trace/index.js';
+import { writeRequirementsFolder } from '../core/trace/requirements/folder.js';
 import { serve } from '../core/trace/serve.js';
 import { serveCollector } from '../core/trace/collector.js';
 import { generateQuestions } from '../core/questions/generate.js';
@@ -310,6 +311,28 @@ traceCmd
         token: opts.token ?? process.env.RTM_TOKEN,
         public: opts.public,
       });
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+traceCmd
+  .command('pull-requirements')
+  .description('Gather requirements from ALL configured sources (Jira/Confluence/markdown/issues/command) into one local folder.')
+  .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
+  .option('--dir <path>', 'output folder', 'requirements')
+  .option('--force', 'overwrite an existing requirements folder', false)
+  .action(async (opts) => {
+    try {
+      const configPath = resolve(opts.config);
+      const baseDir = dirname(configPath);
+      const config = loadTraceConfig(configPath);
+      process.stdout.write(`\n  Gathering requirements (config: ${opts.config})\n`);
+      const reqs = await gatherRequirements(config, baseDir);
+      const out = writeRequirementsFolder(reqs, resolve(baseDir, opts.dir), opts.force);
+      const bySource = out.files.reduce<Record<string, number>>((m, r) => ((m[r.source] = (m[r.source] ?? 0) + 1), m), {});
+      process.stdout.write(`  Wrote ${out.files.length} requirement(s) → ${opts.dir}/ (${Object.entries(bySource).map(([s, n]) => `${s}:${n}`).join(', ')})\n`);
+      process.stdout.write(`  Manifest: ${opts.dir}/manifest.json\n  Next: run the technical-analysis flow over this folder (see docs/AGENT_PROMPT.md).\n`);
     } catch (err) {
       fail(err);
     }

@@ -19,8 +19,9 @@ import { publishConfluence } from '../core/confluence.js';
 import { pullJira, pullConfluence } from '../core/pull.js';
 import { pushFolder } from '../core/push.js';
 import { loadTraceConfig } from '../core/trace/config.js';
-import { runTrace, renderAll, requirementStatus } from '../core/trace/index.js';
+import { runTrace, renderAll, requirementStatus, gatherRequirements } from '../core/trace/index.js';
 import { scaffoldTest } from '../core/trace/scaffoldTest.js';
+import { writeRequirementsFolder } from '../core/trace/requirements/folder.js';
 import { generateQuestions } from '../core/questions/generate.js';
 
 const server = new McpServer({ name: 'ai-confluence-pipeline', version: '0.1.0' });
@@ -338,6 +339,38 @@ server.registerTool(
       if (!r) return { content: [{ type: 'text' as const, text: `${args.key.toUpperCase()} not found in the requirements.` }] };
       const text = `${r.key}: ${r.state}${r.drift ? ' (drift)' : ''}${r.stale ? ' (stale)' : ''} — ${r.tests.length} test(s), ${r.result.passed}/${r.result.failed}/${r.result.skipped} pass/fail/skip`;
       return { content: [{ type: 'text' as const, text }], structuredContent: r as unknown as Record<string, unknown> };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'pull_requirements',
+  {
+    title: 'Gather requirements from all sources into a local folder',
+    description:
+      'Collect business requirements from EVERY source configured in acp-trace.json (Jira / Confluence / ' +
+      'markdown / GitHub or GitLab issues / a command script — a mix is fine) into one local folder: a ' +
+      'markdown file per requirement (with frontmatter + an acceptance-criteria section) plus manifest.json. ' +
+      'This is step 1 of the technical-analysis flow — the local source of truth to analyse against the code.',
+    inputSchema: {
+      configPath: z.string().optional().describe('Path to acp-trace.json (default: ./acp-trace.json).'),
+      dir: z.string().optional().describe('Output folder (default: requirements).'),
+      force: z.boolean().optional().describe('Overwrite an existing folder.'),
+    },
+  },
+  async (args) => {
+    try {
+      const configPath = resolve(args.configPath ?? 'acp-trace.json');
+      const baseDir = dirname(configPath);
+      const config = loadTraceConfig(configPath);
+      const reqs = await gatherRequirements(config, baseDir);
+      const out = writeRequirementsFolder(reqs, resolve(baseDir, args.dir ?? 'requirements'), args.force);
+      return {
+        content: [{ type: 'text' as const, text: `Wrote ${out.files.length} requirement(s) to ${args.dir ?? 'requirements'}/ (+ manifest.json).` }],
+        structuredContent: { dir: args.dir ?? 'requirements', count: out.files.length, keys: out.files.map((f) => f.key) },
+      };
     } catch (err) {
       return errorResult(err);
     }
