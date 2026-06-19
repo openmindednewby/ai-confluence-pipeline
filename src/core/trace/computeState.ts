@@ -72,6 +72,26 @@ function computeStats(rows: TracedRequirement[], orphanCount: number): TraceStat
   };
 }
 
+/** Recount the stats block from the current rows (after a surgical single-key update). */
+export function recomputeStats(report: TraceReport): void {
+  const rows = report.requirements;
+  const count = (s: RequirementState) => rows.filter((r) => r.state === s).length;
+  const total = rows.length;
+  const verified = count('verified');
+  report.stats = {
+    total,
+    verified,
+    failing: count('failing'),
+    unverified: count('unverified'),
+    specified: count('specified'),
+    drift: rows.filter((r) => r.drift).length,
+    orphanTests: report.orphanTests.length,
+    stale: rows.filter((r) => r.stale).length,
+    regressions: report.regressions?.length ?? report.stats.regressions,
+    coveragePct: total ? Math.round((verified / total) * 100) : 0,
+  };
+}
+
 export interface ComputeInput {
   requirements: Requirement[];
   refs: TestRef[];
