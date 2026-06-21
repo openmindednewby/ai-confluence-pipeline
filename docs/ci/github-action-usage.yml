@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - uses: openmindednewby/katastasi@v1
+      - uses: openmindednewby/katastasi@v0.2.0   # or @master
         with:
           args: "trace --run --fail-on regression"
           config: "acp-trace.json"
