@@ -1,0 +1,35 @@
+name: Katastasi
+description: >-
+  Run Katastasi requirements traceability in CI — re-run suites, trace tests to requirements at the
+  commit, and fail the build on a regression (a requirement going verified → failing).
+author: openmindednewby
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  args:
+    description: Arguments passed to `katastasi`. Default runs trace and fails on any regression.
+    required: false
+    default: "trace --run --fail-on regression"
+  config:
+    description: Path to the config file (acp-trace.json).
+    required: false
+    default: "acp-trace.json"
+  version:
+    description: npm version/tag of katastasi to run (e.g. "latest", "0.2.0").
+    required: false
+    default: "latest"
+  working-directory:
+    description: Directory to run in.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Run Katastasi
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        npx --yes "katastasi@${{ inputs.version }}" ${{ inputs.args }} --config "${{ inputs.config }}"

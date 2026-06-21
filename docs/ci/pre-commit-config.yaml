@@ -1,0 +1,12 @@
+# Katastasi as a pre-commit / pre-push guard.
+# Add to your .pre-commit-config.yaml (https://pre-commit.com). Traces against the LAST run (no re-run,
+# so it's fast) and fails the commit if any requirement is currently failing/regressed.
+repos:
+  - repo: local
+    hooks:
+      - id: katastasi-trace
+        name: Katastasi traceability
+        entry: npx --yes katastasi@latest trace --fail-on regression --config acp-trace.json
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
