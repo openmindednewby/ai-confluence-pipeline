@@ -90,7 +90,7 @@ published. Guide: **[docs/TECH_ANALYSIS_FLOW.md](docs/TECH_ANALYSIS_FLOW.md)**.
 - **Jira & Confluence (both ways):** `pull-jira` / `pull-confluence` → markdown folders; edit; `push-folder`
   back. Recursive + round-trippable.
 - **GitHub / GitLab issues:** as requirement sources (by label/milestone).
-- **CI/CD:** a published **GitHub Action** (`uses: openmindednewby/katastasi@v1`) plus GitLab CI and
+- **CI/CD:** a published **GitHub Action** (`uses: openmindednewby/katastasi@v0.2.0`) plus GitLab CI and
   pre-commit templates in **[docs/ci/](docs/ci/)**. Exit non-zero on regression.
 - **Custom scripts / services:** a `command` requirement source (run any script → requirements), an
   `output.post` sink (POST the full report to your server), and a self-hosted `collector`.
