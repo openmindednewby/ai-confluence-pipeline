@@ -5,14 +5,17 @@
 
 ## What this repo is
 
-`ai-confluence-pipeline` turns **markdown ⇄ Jira / Confluence**, in both directions, and reports
-**requirements traceability** (which requirements are actually covered by passing tests). Two ways to
-drive it, plus an optional AI-authoring layer:
+**Katastasi** (npm: `katastasi`; formerly `ai-confluence-pipeline`) is an open-source documentation,
+task-tracking, and testing **framework** — local-first markdown source of truth, agent-native, syncing
+to Jira/Confluence/issues/CI. It turns **markdown ⇄ Jira / Confluence** both ways and reports
+**requirements traceability** (which requirements are actually covered by passing tests, at the commit).
+The vision + roadmap is in **[VISION.md](VISION.md)**. Two ways to drive it, plus an optional
+AI-authoring layer:
 
 | Interface | Entry point | Use |
 |-----------|-------------|-----|
-| **`acp` CLI** | `src/cli/index.ts` → `dist/cli/index.js` | publish / pull / push-folder / trace from a terminal |
-| **`acp-mcp` MCP server** | `src/mcp/server.ts` → `dist/mcp/server.js` | let an agent call the same operations as tools |
+| **`katastasi` CLI** (aliases `kat`, `acp`) | `src/cli/index.ts` → `dist/cli/index.js` | publish / pull / push-folder / trace / analyze / pipeline from a terminal |
+| **`katastasi-mcp` MCP server** (alias `acp-mcp`) | `src/mcp/server.ts` → `dist/mcp/server.js` | let an agent call the same operations as tools |
 | **n8n workflows** (optional) | `workflows/*.json` | AI-authoring + webhook publish (the "forward" flow) |
 
 The core conversion + REST logic lives in `src/core/` and is plain TypeScript with **no n8n dependency**

@@ -1,0 +1,17 @@
+# Katastasi on GitLab CI — copy into your .gitlab-ci.yml (or `include:` it).
+# Re-runs suites, traces tests ↔ requirements at the commit, fails the pipeline on a regression.
+katastasi-trace:
+  stage: test
+  image: node:20
+  script:
+    - npx --yes katastasi@latest trace --run --fail-on regression --config acp-trace.json
+  artifacts:
+    when: always
+    paths:
+      - RTM.md
+      - RTM.html
+      - runs/
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

@@ -54,9 +54,9 @@ function fail(err: unknown): never {
 
 const program = new Command();
 program
-  .name('acp')
-  .description('Publish markdown to Jira / Confluence via the ai-confluence-pipeline n8n workflows.')
-  .version('0.1.0');
+  .name('katastasi')
+  .description('Katastasi — documentation, task-tracking & testing framework. Local-first markdown; syncs to Jira/Confluence/issues/CI. (aliases: kat, acp)')
+  .version('0.2.0');
 
 program
   .command('jira')

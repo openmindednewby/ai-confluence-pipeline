@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ai-confluence-pipeline MCP server (stdio).
+ * katastasi MCP server (stdio).
  *
  * Exposes two tools so a Claude agent can publish the markdown it has written:
  *   - markdown_to_jira:        create/update a Jira Epic + linked Stories
@@ -25,7 +25,7 @@ import { writeRequirementsFolder } from '../core/trace/requirements/folder.js';
 import { analyze } from '../core/analyze/analyze.js';
 import { generateQuestions } from '../core/questions/generate.js';
 
-const server = new McpServer({ name: 'ai-confluence-pipeline', version: '0.1.0' });
+const server = new McpServer({ name: 'katastasi', version: '0.2.0' });
 
 const TASK_MD_DESC =
   'Markdown for each Story (one string per Story). First `# ` line becomes the summary; ' +
@@ -426,7 +426,7 @@ function errorResult(err: unknown) {
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write('ai-confluence-pipeline MCP server running on stdio\n');
+  process.stderr.write('katastasi MCP server running on stdio\n');
 }
 
 main().catch((error) => {
