@@ -51,7 +51,7 @@ export interface Requirement {
 }
 
 /** Test technology family. Drives default tag/scan conventions. */
-export type TestTech = 'playwright' | 'jest' | 'vitest' | 'node' | 'xunit' | 'generic';
+export type TestTech = 'playwright' | 'jest' | 'vitest' | 'node' | 'xunit' | 'generic' | 'acceptance';
 
 /** A single test that references a requirement key (discovered by the static scanner or a mapping). */
 export interface TestRef {
