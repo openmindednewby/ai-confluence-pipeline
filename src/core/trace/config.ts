@@ -45,7 +45,7 @@ const requirementSourceSchema = z.discriminatedUnion('type', [
 ]);
 
 const testSourceSchema = z.object({
-  tech: z.enum(['playwright', 'jest', 'vitest', 'node', 'xunit', 'generic']),
+  tech: z.enum(['playwright', 'jest', 'vitest', 'node', 'xunit', 'generic', 'acceptance']),
   globs: z.array(z.string()).min(1),
   /** Result-file globs (JUnit XML / TRX) produced by running this tech's suite. */
   results: z.array(z.string()).optional(),
@@ -92,6 +92,18 @@ export const traceConfigSchema = z.object({
   scopes: z.array(scopeSchema).min(1),
   /** Task tracking (Phase 1). Optional; defaults filled by `resolveTasksConfig`. */
   tasks: tasksConfigSchema.optional(),
+  /**
+   * Acceptance test runner (Phase 2). `baseUrl`/`headers` apply to every HTTP step; `setup` is a
+   * one-time case (e.g. login) whose captured variables seed all cases. Secrets come from env via
+   * `{{env.NAME}}` interpolation — never stored here. Steps use the same authoring shape as specs.
+   */
+  runner: z
+    .object({
+      baseUrl: z.string().optional(),
+      headers: z.record(z.string()).optional(),
+      setup: z.object({ name: z.string().optional(), steps: z.array(z.unknown()).min(1) }).optional(),
+    })
+    .optional(),
   /** Run history: where git-stamped snapshots are stored + an optional named baseline to diff against. */
   history: z
     .object({ dir: z.string().optional(), baseline: z.string().optional(), keep: z.number().optional() })
