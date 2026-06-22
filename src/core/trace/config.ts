@@ -62,7 +62,26 @@ const scopeSchema = z.object({
   mapping: z.string().optional(),
   /** Globs of implementation code to scan for `@KEY` tags → "referenced in code?" (gap analysis). */
   code: z.array(z.string()).optional(),
+  /** Task ID prefix for this scope (e.g. "WEB" → WEB-1 in .acp/tasks/<scope>/). Omit → global TASK ids. */
+  taskPrefix: z.string().optional(),
 });
+
+/** Task-tracking settings (Phase 1). All fields optional; resolve via `resolveTasksConfig`. */
+const tasksConfigSchema = z
+  .object({
+    mode: z.enum(['local', 'jira', 'hybrid']).optional(),
+    dir: z.string().optional(),
+    idPrefix: z.string().optional(),
+    statuses: z.array(z.string()).min(1).optional(),
+    doneStatuses: z.array(z.string()).min(1).optional(),
+    verifyDone: z.boolean().optional(),
+    driftRule: z.enum(['unverified', 'strict', 'failing']).optional(),
+    jira: z.object({ epic: z.string() }).optional(),
+  })
+  .refine(
+    (t) => !t.statuses || !t.doneStatuses || t.doneStatuses.every((s) => t.statuses!.includes(s)),
+    { message: 'tasks.doneStatuses must all be members of tasks.statuses' },
+  );
 
 export const traceConfigSchema = z.object({
   project: z.string().optional(),
@@ -71,6 +90,8 @@ export const traceConfigSchema = z.object({
   /** Repo root the globs + git are resolved against (relative to the config file; default `.`). */
   repoDir: z.string().optional(),
   scopes: z.array(scopeSchema).min(1),
+  /** Task tracking (Phase 1). Optional; defaults filled by `resolveTasksConfig`. */
+  tasks: tasksConfigSchema.optional(),
   /** Run history: where git-stamped snapshots are stored + an optional named baseline to diff against. */
   history: z
     .object({ dir: z.string().default('runs'), baseline: z.string().optional(), keep: z.number().optional() })
@@ -106,6 +127,53 @@ export type TraceConfig = z.infer<typeof traceConfigSchema>;
 export type RequirementSource = z.infer<typeof requirementSourceSchema>;
 export type TestSourceConfig = z.infer<typeof testSourceSchema>;
 export type TraceScope = z.infer<typeof scopeSchema>;
+export type TasksConfig = z.infer<typeof tasksConfigSchema>;
+
+/** Task drift rule: when a `done` task counts as ⚠️ drift. */
+export type TaskDriftRule = 'unverified' | 'strict' | 'failing';
+
+/** Fully-resolved task settings (every field present). */
+export interface ResolvedTasksConfig {
+  mode: 'local' | 'jira' | 'hybrid';
+  dir: string;
+  idPrefix: string;
+  statuses: string[];
+  doneStatuses: string[];
+  verifyDone: boolean;
+  driftRule: TaskDriftRule;
+  jira?: { epic: string };
+}
+
+export const DEFAULT_TASKS_CONFIG: ResolvedTasksConfig = {
+  mode: 'local',
+  dir: '.acp/tasks',
+  idPrefix: 'TASK',
+  statuses: ['todo', 'in-progress', 'blocked', 'done'],
+  doneStatuses: ['done'],
+  verifyDone: true,
+  driftRule: 'unverified',
+};
+
+/** Merge a config's `tasks` block over the defaults → a fully-resolved task config. */
+export function resolveTasksConfig(config: TraceConfig): ResolvedTasksConfig {
+  const t = config.tasks ?? {};
+  const d = DEFAULT_TASKS_CONFIG;
+  return {
+    mode: t.mode ?? d.mode,
+    dir: t.dir ?? d.dir,
+    idPrefix: t.idPrefix ?? d.idPrefix,
+    statuses: t.statuses ?? d.statuses,
+    doneStatuses: t.doneStatuses ?? d.doneStatuses,
+    verifyDone: t.verifyDone ?? d.verifyDone,
+    driftRule: t.driftRule ?? d.driftRule,
+    ...(t.jira ? { jira: t.jira } : {}),
+  };
+}
+
+/** The task ID prefix for a scope: its `taskPrefix` if set, else the global `tasks.idPrefix`. */
+export function scopeTaskPrefix(resolved: ResolvedTasksConfig, scope?: TraceScope): string {
+  return scope?.taskPrefix ?? resolved.idPrefix;
+}
 
 /** Parse + validate config from a JSON string. Throws a readable error on a bad shape. */
 export function parseTraceConfig(json: string): TraceConfig {
