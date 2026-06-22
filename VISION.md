@@ -94,9 +94,11 @@ specs; the MCP `test_run` tool drives it. **Full guide: [docs/ACCEPTANCE.md](doc
 **Done when:** an AI-generated requirement ships with an executable criterion that flips it to ✅ on pass.
 *Phase 2.2 (later):* *link* units (Jest/pytest/xUnit) → *link* Playwright (don't rebuild).
 
-### Phase 3 — Bidirectional sync (incremental)
-Hybrid engine across Jira + Confluence + GitHub/GitLab issues. **v1** one-way + conflict-flag, **v2**
-field-merge, **v3** interactive 3-way.
+### Phase 3 — Bidirectional sync (incremental) ← *next; scoped in [docs/PHASE-3-DESIGN.md](docs/PHASE-3-DESIGN.md)*
+A hybrid **3-way reconciler** (base = last-synced state · local markdown · remote) across Jira +
+Confluence + GitHub/GitLab issues, with a `.acp/sync/` state store tracking remote revisions. **v1**
+one-way + conflict-flag, **v2** field-merge, **v3** interactive 3-way. Replaces today's clobbering
+`push` with revision-tracked, field-aware, conflict-flagging sync.
 **Done when:** editing either side reconciles safely, with conflicts surfaced — never silently lost.
 
 ### Phase 4 — Breadth & polish
