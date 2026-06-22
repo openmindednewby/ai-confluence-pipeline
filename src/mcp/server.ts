@@ -13,7 +13,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { dirname, resolve, relative } from 'node:path';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { publishJira } from '../core/jira.js';
 import { publishConfluence } from '../core/confluence.js';
 import { pullJira, pullConfluence } from '../core/pull.js';
@@ -21,6 +21,12 @@ import { pushFolder } from '../core/push.js';
 import { loadTraceConfig } from '../core/trace/config.js';
 import { runTrace, renderAll, requirementStatus, gatherRequirements } from '../core/trace/index.js';
 import { resolveStoreDir } from '../core/trace/store.js';
+import { resolveTasksConfig } from '../core/trace/config.js';
+import { addTask, listTasksFiltered, getTask, setTaskStatus, linkTask } from '../core/trace/tasks/ops.js';
+import { verifyTasks, summarizeDrift, type TaskVerification } from '../core/trace/tasks/verify.js';
+import { renderBoard, boardPath } from '../core/trace/tasks/board.js';
+import { reportForTasks } from '../core/trace/tasks/report.js';
+import type { Task } from '../core/trace/tasks/model.js';
 import { scaffoldTest } from '../core/trace/scaffoldTest.js';
 import { writeRequirementsFolder } from '../core/trace/requirements/folder.js';
 import { analyze } from '../core/analyze/analyze.js';
@@ -415,6 +421,174 @@ server.registerTool(
         'Publish with markdown_to_confluence (technical-analysis.md) + markdown_to_jira (tasks/).',
       ];
       return { content: [{ type: 'text' as const, text: lines.join('\n') }], structuredContent: { outDir: r.outDir, files: r.files, tasks: r.tasks.map((t) => t.key), scaffolded: r.scaffolded } };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+// ── Task tools (Phase 1) ──────────────────────────────────────────────────────────────────────
+
+function taskCtx(configPath?: string): { baseDir: string; config: ReturnType<typeof loadTraceConfig> } {
+  const p = resolve(configPath ?? 'acp-trace.json');
+  return { baseDir: dirname(p), config: loadTraceConfig(p) };
+}
+
+async function verificationsForMcp(
+  baseDir: string,
+  config: ReturnType<typeof loadTraceConfig>,
+  tasks: Task[],
+  opts: { run?: boolean },
+): Promise<{ vs: TaskVerification[]; staleNote: string | null; hadReport: boolean }> {
+  const resolved = resolveTasksConfig(config);
+  const src = await reportForTasks(baseDir, config, { run: opts.run });
+  if (!src.report) {
+    const vs = tasks.map((t) => ({ task: t, done: resolved.doneStatuses.includes(t.status), drift: false, reason: null, requirements: [] }));
+    return { vs, staleNote: null, hadReport: false };
+  }
+  return { vs: verifyTasks(tasks, src.report, resolved), staleNote: src.staleNote, hadReport: true };
+}
+
+server.registerTool(
+  'task_add',
+  {
+    title: 'Create a task',
+    description:
+      'Create a local task in .acp/tasks, linked to requirement keys (many-to-many). Blocked when ' +
+      'tasks.mode is not "local". Status defaults to the first configured status and is validated.',
+    inputSchema: {
+      title: z.string().describe('Task title.'),
+      requirements: z.array(z.string()).optional().describe('Linked requirement key(s), e.g. ["PROJ-1"].'),
+      tests: z.array(z.string()).optional().describe('Explicit test ref(s); coverage is otherwise derived via requirements.'),
+      status: z.string().optional().describe('Initial status (default: first configured).'),
+      assignee: z.string().optional(),
+      scope: z.string().optional().describe('Scope name (uses its taskPrefix + subfolder if it sets one).'),
+      configPath: z.string().optional(),
+    },
+  },
+  async (args) => {
+    try {
+      const { baseDir, config } = taskCtx(args.configPath);
+      const t = addTask(baseDir, config, { title: args.title, requirements: args.requirements, tests: args.tests, status: args.status, assignee: args.assignee, scope: args.scope });
+      return { content: [{ type: 'text' as const, text: `Created ${t.id} [${t.status}] ${t.title}` }], structuredContent: t as unknown as Record<string, unknown> };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'task_list',
+  {
+    title: 'List tasks (optionally drift-checked)',
+    description:
+      'List tasks, optionally filtered by status/requirement. With drift=true, cross-checks done tasks ' +
+      'against the latest trace run (run=true re-runs the suites first) and flags ⚠️ done-but-unproven.',
+    inputSchema: {
+      status: z.string().optional(),
+      req: z.string().optional().describe('Filter by a linked requirement key.'),
+      drift: z.boolean().optional().describe('Cross-check done tasks for drift.'),
+      run: z.boolean().optional().describe('Re-run suites before the drift check.'),
+      configPath: z.string().optional(),
+    },
+  },
+  async (args) => {
+    try {
+      const { baseDir, config } = taskCtx(args.configPath);
+      const tasks = listTasksFiltered(baseDir, config, { status: args.status, req: args.req });
+      if (!args.drift) {
+        return {
+          content: [{ type: 'text' as const, text: tasks.map((t) => `${t.id} [${t.status}] ${t.title}`).join('\n') || '(no tasks)' }],
+          structuredContent: { tasks } as unknown as Record<string, unknown>,
+        };
+      }
+      const { vs, staleNote, hadReport } = await verificationsForMcp(baseDir, config, tasks, { run: args.run });
+      const lines = vs.map((v) => `${v.drift ? '⚠️ ' : ''}${v.task.id} [${v.task.status}] ${v.task.title}`);
+      if (!hadReport) lines.unshift('(no trace run found — drift not computed)');
+      if (staleNote) lines.unshift(`stale: ${staleNote}`);
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') || '(no tasks)' }],
+        structuredContent: { tasks: vs.map((v) => ({ ...v.task, drift: v.drift, reason: v.reason })) } as unknown as Record<string, unknown>,
+      };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'task_set_status',
+  {
+    title: 'Set a task’s status',
+    description: 'Move a task to a new status (validated against tasks.statuses). Blocked when tasks.mode is not "local".',
+    inputSchema: {
+      id: z.string().describe('Task id, e.g. TASK-1.'),
+      status: z.string().describe('New status (must be in tasks.statuses).'),
+      configPath: z.string().optional(),
+    },
+  },
+  async (args) => {
+    try {
+      const { baseDir, config } = taskCtx(args.configPath);
+      const t = setTaskStatus(baseDir, config, args.id, args.status);
+      return { content: [{ type: 'text' as const, text: `${t.id} → [${t.status}]` }], structuredContent: t as unknown as Record<string, unknown> };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'task_link',
+  {
+    title: 'Link a task to requirement(s)/test(s)',
+    description: 'Add requirement keys and/or test refs to a task (deduped). Blocked when tasks.mode is not "local".',
+    inputSchema: {
+      id: z.string(),
+      requirements: z.array(z.string()).optional(),
+      tests: z.array(z.string()).optional(),
+      configPath: z.string().optional(),
+    },
+  },
+  async (args) => {
+    try {
+      const { baseDir, config } = taskCtx(args.configPath);
+      const t = linkTask(baseDir, config, args.id, { requirements: args.requirements, tests: args.tests });
+      return { content: [{ type: 'text' as const, text: `${t.id} requirements: ${t.requirements.join(', ') || '(none)'} · tests: ${t.tests.join(', ') || '(none)'}` }], structuredContent: t as unknown as Record<string, unknown> };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'task_board',
+  {
+    title: 'Render the task board',
+    description:
+      'Render the markdown kanban (columns by status, ⚠️ drift markers) to .acp/BOARD.md and return it. ' +
+      'run=true re-runs the suites before the drift check.',
+    inputSchema: {
+      out: z.string().optional().describe('Output path (default: .acp/BOARD.md).'),
+      run: z.boolean().optional(),
+      configPath: z.string().optional(),
+    },
+  },
+  async (args) => {
+    try {
+      const { baseDir, config } = taskCtx(args.configPath);
+      const tasks = listTasksFiltered(baseDir, config);
+      const { vs, staleNote } = await verificationsForMcp(baseDir, config, tasks, { run: args.run });
+      const md = renderBoard(vs, resolveTasksConfig(config), { title: config.project ? `${config.project} — Board` : 'Task Board' });
+      const out = args.out ? resolve(baseDir, args.out) : boardPath(baseDir);
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(out, md, 'utf8');
+      const sum = summarizeDrift(vs);
+      const note = staleNote ? `stale: ${staleNote}\n` : '';
+      return {
+        content: [{ type: 'text' as const, text: `${note}Board → ${relative(baseDir, out) || '.'} (${sum.total} task(s) · ${sum.done} done · ${sum.drift} ⚠️ drift)\n\n${md}` }],
+        structuredContent: { path: relative(baseDir, out), total: sum.total, done: sum.done, drift: sum.drift } as unknown as Record<string, unknown>,
+      };
     } catch (err) {
       return errorResult(err);
     }
