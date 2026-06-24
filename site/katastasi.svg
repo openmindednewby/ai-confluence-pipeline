@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Katastasi">
+  <defs>
+    <linearGradient id="kg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5b8def"/>
+      <stop offset="1" stop-color="#2ea043"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#kg)"/>
+  <!-- Greek kappa (Κ) lettermark — the "status" K -->
+  <g fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M174 120 V392"/>
+    <path d="M174 256 L350 120"/>
+    <path d="M174 256 L350 392"/>
+  </g>
+  <!-- verified status dot -->
+  <circle cx="392" cy="392" r="34" fill="#ffffff"/>
+  <path d="M376 392 L388 404 L410 380" fill="none" stroke="#2ea043" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

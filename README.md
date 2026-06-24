@@ -20,6 +20,8 @@ MIT-licensed and free to self-host. New here? See **[VISION.md](VISION.md)** for
 roadmap.
 
 > **Coding agent or contributor?** Start with **[AGENTS.md](AGENTS.md)**.
+> **Adopting it on a team?** See the **[methodology](docs/METHODOLOGY.md)** — the per-feature loop
+> (onboard → design → implement → verify → sync) and where it slots into PRs/CI.
 
 ---
 
