@@ -56,6 +56,14 @@ export function writeRecordToTask(path: string, record: SyncRecord, today: strin
   writeTask(dirname(path), updated);
 }
 
+/** Write the linked remote id/url into a task's frontmatter (visible link after create). */
+export function linkTaskRemote(path: string, remoteId: string, remoteUrl: string | undefined): void {
+  const task = readTask(path);
+  task.remoteId = remoteId;
+  if (remoteUrl) task.remoteUrl = remoteUrl;
+  writeTask(dirname(path), task);
+}
+
 /** Create a new local task from a pulled remote record. Returns the new path + relative key. */
 export function createTaskFromRecord(
   baseDir: string,
@@ -63,6 +71,7 @@ export function createTaskFromRecord(
   record: SyncRecord,
   idPrefix: string,
   today: string,
+  link?: { remoteId: string; remoteUrl?: string },
 ): { path: string; key: string; task: Task } {
   const task: Task = {
     id: allocateId(baseDir, idPrefix),
@@ -76,6 +85,7 @@ export function createTaskFromRecord(
     updated: today,
     body: record.body,
     ...(record.labels.length ? { labels: [...record.labels] } : {}),
+    ...(link ? { remoteId: link.remoteId, ...(link.remoteUrl ? { remoteUrl: link.remoteUrl } : {}) } : {}),
   };
   const path = writeTask(tasksRoot, task);
   return { path, key: relKey(baseDir, path), task };
