@@ -96,5 +96,10 @@ from the SPA beyond sync; a packaged desktop app (Electron) — `npx` covers it.
   markdown file (content) + an `index.md` (Jira items as requirement checkbox lines, Confluence pages as
   reference docs) into `.acp/requirements/`; broken items skipped. Endpoint `POST /api/pull`; SPA
   Download step.
-- **Next:** slice 4 = **Design** (run analyze → render the FeaturePack inline, incl. DB-changes), then
-  review → sync.
+- **Slice 4 ✅ (2026-06-24):** **Design** (with inline review) — `POST /api/design` builds a config
+  (repo's `acp-trace.json` or a synthesised one over the pulled `.acp/requirements/index.md`), resolves
+  the model from the saved `.env` (`defaultChat(aiConfigFromEnv(readEnvValues))`; injectable in tests),
+  runs `runWizard` (system design + DB-changes gate + ordered tasks + tests + curls) and returns the
+  FeaturePack. SPA Design step: feature name + "needs DB changes?" → Generate → renders the pack inline
+  (mermaid via CDN) + a link to the full `feature-pack.html`.
+- **Next:** slice 5 = **Sync** (run `sync` from the wizard), then the `dloizides.com` front page.

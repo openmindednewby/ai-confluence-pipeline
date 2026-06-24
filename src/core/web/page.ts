@@ -76,10 +76,22 @@ export function renderWizardPage(): string {
       <button id="pull-btn">Download ticked → .acp/requirements/</button>
       <span id="pull-msg" class="muted" style="margin-left:10px"></span>
       <div id="pull-result" style="display:none"></div>
-      <p class="muted" style="margin-top:1em">Next: <b>Design</b> — run the AI analysis (system design + DB changes + ordered tasks + tests). <span class="pill">coming in the next slice</span></p>
+    </div>
+
+    <div id="design-wrap" style="display:none">
+      <h1 style="margin-top:1.2em">Design</h1>
+      <p class="sub">Run the AI analysis over the pulled requirements (+ your code) — system data-flow, DB changes, ordered tasks, tests &amp; curls. Needs an AI key (OpenAI / GitHub token in Connect).</p>
+      <section class="card">
+        <label>Feature name</label><input id="feat-name" placeholder="e.g. SSO login">
+        <label style="margin-top:.8em"><input type="checkbox" id="feat-db" style="width:auto;margin-right:6px">This feature needs database changes</label>
+        <button id="design-btn">Generate</button>
+        <span id="design-msg" class="muted" style="margin-left:10px"></span>
+      </section>
+      <div id="design-result"></div>
     </div>
   </main>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>
   var GROUP_KEYS = { jira:['JIRA_BASE_URL','JIRA_EMAIL','JIRA_API_TOKEN'], confluence:['CONFLUENCE_BASE_URL','CONFLUENCE_EMAIL','CONFLUENCE_API_TOKEN'], github:['GITHUB_TOKEN'] };
   function paint(status){
@@ -129,6 +141,30 @@ export function renderWizardPage(): string {
   document.getElementById('sel-all').addEventListener('click', function(){ document.querySelectorAll('.disc').forEach(function(c){ c.checked = true; }); });
   document.getElementById('sel-none').addEventListener('click', function(){ document.querySelectorAll('.disc').forEach(function(c){ c.checked = false; }); });
 
+  // ── Design ──
+  try { if (window.mermaid) mermaid.initialize({ startOnLoad:false, theme:'dark' }); } catch(e){}
+  function list(arr, fn){ return (arr||[]).map(fn).join(''); }
+  function renderDesign(d){
+    var p = d.pack; var h = '';
+    h += '<h2 style="border-bottom:1px solid var(--line);padding-bottom:.3em">'+escapeHtml(p.feature)+'</h2>';
+    h += '<p class="muted">'+ (p.requirements||[]).length +' requirement(s) · '+ (p.tasks||[]).length +' task(s) · '+ (p.curls||[]).length +' curl(s) · <a href="/' + escapeHtml(d.html) + '" target="_blank">open full feature pack</a></p>';
+    if (p.systemMermaid){ h += '<h3>System data-flow</h3><section class="card"><pre class="mermaid">'+escapeHtml(p.systemMermaid)+'</pre></section>'; }
+    if (p.dbChanges && p.dbChanges.length){ h += '<h3>Database / migration changes</h3><section class="card"><ul>'+ list(p.dbChanges, function(c){ return '<li><label><input type="checkbox"> '+escapeHtml(c)+'</label></li>'; }) +'</ul></section>'; }
+    if (p.tasks && p.tasks.length){ h += '<h3>Tasks (ordered)</h3><section class="card"><ol>'+ list(p.tasks, function(t){ return '<li><b>'+escapeHtml(t.title)+'</b> <span class="pill">'+escapeHtml((t.requirements||[]).join(', '))+'</span></li>'; }) +'</ol></section>'; }
+    if (p.curls && p.curls.length){ h += '<h3>Verify — curls</h3><section class="card"><ul class="muted">'+ list(p.curls, function(c){ return '<li>'+escapeHtml(c.method+' '+c.url)+(c.note?' — '+escapeHtml(c.note):'')+'</li>'; }) +'</ul></section>'; }
+    document.getElementById('design-result').innerHTML = h;
+    try { if (window.mermaid) mermaid.run({ querySelector: '#design-result .mermaid' }); } catch(e){}
+  }
+  document.getElementById('design-btn').addEventListener('click', function(){
+    var feature = document.getElementById('feat-name').value.trim(); var msg = document.getElementById('design-msg');
+    if (!feature) { msg.textContent = 'name the feature'; return; }
+    msg.textContent = 'analysing… (this calls the AI)';
+    fetch('/api/design', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ feature: feature, dbChanges: document.getElementById('feat-db').checked }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+      .then(function(res){ if (!res.ok) { msg.textContent = res.d.error || 'failed'; return; } msg.textContent = ''; document.querySelector('nav li[data-step="design"]').className='done'; renderDesign(res.d); })
+      .catch(function(){ msg.textContent = 'request failed'; });
+  });
+
   document.getElementById('pull-btn').addEventListener('click', function(){
     var all = []; try { all = JSON.parse(localStorage.getItem('katastasi-web:discovered') || '[]'); } catch(e){}
     var picked = [];
@@ -142,6 +178,8 @@ export function renderWizardPage(): string {
         if (!res.ok) { msg.textContent = res.d.error || 'failed'; return; }
         msg.textContent = '';
         document.querySelector('nav li[data-step="download"]').className = 'done';
+        document.getElementById('design-wrap').style.display = 'block';
+        document.querySelector('nav li[data-step="design"]').className = 'active';
         var d = res.d; var box = document.getElementById('pull-result'); box.style.display = 'block';
         box.innerHTML = '<section class="card"><b>Downloaded ' + d.written.length + ' file(s)</b> → <code>' + escapeHtml(d.outDir) + '/</code>'
           + (d.skipped && d.skipped.length ? ' <span class="pill">' + d.skipped.length + ' skipped</span>' : '')
