@@ -61,6 +61,8 @@ katastasi sync --apply --pull-only   # only pull remote changes
 katastasi sync --binding tasks-github --apply
 katastasi sync --apply --fail-on conflict   # CI: exit non-zero if anything conflicts
 katastasi sync status          # the recorded task↔remote links (no network)
+katastasi sync resolve         # list open conflicts
+katastasi sync resolve TASK-1 --take local    # keep local, clear the conflict, re-baseline
 ```
 
 Resolve a conflict by editing the local task (or the remote) to the value you want, then re-run `sync` —
@@ -86,5 +88,7 @@ apply the sync and report pushes / pulls / conflicts.
 - **v2 ✅** — **field-level auto-merge**: set `sync.mergeStrategy: "field-merge"` in `acp-trace.json` and
   when both sides changed *different* fields they merge automatically (each side's field wins); only a
   *same-field* divergence stays a conflict. Default stays `conflict-flag`.
-- **v3** — interactive conflict resolution (`sync resolve --take local|remote`).
+- **v3 ✅** — interactive conflict resolution: `katastasi sync resolve` (no id lists open conflicts);
+  `katastasi sync resolve <id> --take local|remote` keeps one side, re-baselines, and clears the conflict
+  so the next sync is clean. Also in the web wizard (take-local/take-remote buttons) + MCP `sync_resolve`.
 - Confluence docs and requirement bindings come after. Design: **[PHASE-3-DESIGN.md](PHASE-3-DESIGN.md)**.

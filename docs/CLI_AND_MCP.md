@@ -214,6 +214,8 @@ katastasi sync --apply         # push local-only + pull remote-only, flag confli
 katastasi sync --apply --push-only   # or --pull-only
 katastasi sync --binding tasks-github --apply
 katastasi sync status          # recorded task↔remote links (no network)
+katastasi sync resolve         # list open conflicts
+katastasi sync resolve TASK-1 --take local|remote   # keep one side, clear the conflict
 ```
 
 `katastasi sync` flags: `--config`, `--apply`, `--push-only`, `--pull-only`, `--binding <id>`,

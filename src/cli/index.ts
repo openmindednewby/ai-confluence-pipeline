@@ -32,7 +32,7 @@ import type { TaskVerification } from '../core/trace/tasks/verify.js';
 import type { Task } from '../core/trace/tasks/model.js';
 import { runAcceptance } from '../core/trace/acceptance/orchestrate.js';
 import { runWizard, wizardCheck, ensureRequirementsDoc, type WizardSource } from '../core/wizard/wizard.js';
-import { runSync, syncLinks } from '../core/sync/sync.js';
+import { runSync, syncLinks, listConflicts, resolveConflict } from '../core/sync/sync.js';
 import { installSkills } from '../core/skills/install.js';
 import { startWebServer } from '../core/web/server.js';
 import { serve } from '../core/trace/serve.js';
@@ -656,6 +656,37 @@ const syncCmd = program
       }
       if (!opts.apply) process.stdout.write('\n  Preview only — re-run with --apply to write.\n');
       process.exit(opts.failOn === 'conflict' && conflicts > 0 ? 1 : 0);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+syncCmd
+  .command('resolve [id]')
+  .description('Resolve a flagged conflict by taking one side (id = task key or remote id). No id lists open conflicts.')
+  .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
+  .option('--take <side>', 'local | remote')
+  .option('--binding <id>', 'restrict to this binding')
+  .action(async (id, opts) => {
+    try {
+      const configPath = resolve(opts.config);
+      const baseDir = dirname(configPath);
+      const config = loadTraceConfig(configPath);
+      if (!id) {
+        const conflicts = listConflicts(baseDir);
+        process.stdout.write('\n');
+        if (!conflicts.length) process.stdout.write('  No open conflicts.\n');
+        else {
+          conflicts.forEach((c) => process.stdout.write(`  ⚠️ ${c.binding}/${c.id}  → ${c.file}\n`));
+          process.stdout.write('\n  Resolve:  katastasi sync resolve <id> --take local|remote\n');
+        }
+        return;
+      }
+      if (opts.take !== 'local' && opts.take !== 'remote') {
+        fail(new Error('pass --take local  or  --take remote'));
+      }
+      const r = await resolveConflict(config, baseDir, { id, take: opts.take, binding: opts.binding });
+      process.stdout.write(`\n  Resolved ${r.bindingId}/${r.key} ↔ ${r.remoteId} — took ${r.take}.\n`);
     } catch (err) {
       fail(err);
     }
