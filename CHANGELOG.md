@@ -3,6 +3,24 @@
 All notable changes to **Katastasi** are documented here. Format: [Keep a Changelog](https://keepachangelog.com),
 versioning: [SemVer](https://semver.org).
 
+## [Unreleased] — Feature Lifecycle Wizard (slice 1)
+
+A guided idea→dev-ready-pack flow (design: [docs/WIZARD-DESIGN.md](docs/WIZARD-DESIGN.md)).
+
+### Added
+- **`katastasi wizard`** — source (Jira/Confluence/both/none) → requirements (new/pull/clean) → `analyze`
+  (system + per-use-case mermaid + gaps) → ordered context-rich tasks → unit/e2e/acceptance stubs +
+  ready-made curls → a self-contained **HTML feature pack** (read → approve → run curls → verify) + a
+  markdown mirror (+ optional Confluence). Interactive in a TTY; flag-driven otherwise. Generates only.
+- **`katastasi wizard check`** — credential doctor for Jira/Confluence; prints exactly what's missing.
+- **First-time auth guide** — [docs/SOURCES_SETUP.md](docs/SOURCES_SETUP.md) (Atlassian API token → `.env`).
+- **MCP `feature_wizard`** (20 tools) so a coding agent can produce the pack.
+
+### Notes
+- Slice 1 wraps the existing `pull-requirements` / `analyze` / `task` / acceptance machinery. Later
+  phases (per-design): per-endpoint data-flow diagrams, dependency task ordering, curl id-sourcing,
+  approve/verify export, requirement-change diff.
+
 ## [0.4.0] — 2026-06-22 — Acceptance test runner (Phase 2)
 
 A built-in **requirement-first acceptance runner** — the third pillar (see

@@ -43,6 +43,11 @@ The core conversion + REST logic lives in `src/core/` and is plain TypeScript wi
   `test_run`. See [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 - **Tasks** — local markdown task tracking (`katastasi task …`) linked to requirements + tests, with a
   done-but-not-verified ⚠️ drift check. See [docs/PHASE-1-DESIGN.md](docs/PHASE-1-DESIGN.md).
+- **Feature wizard** — `katastasi wizard`: idea + requirements (Jira/Confluence/markdown) + code → a
+  dev-ready **feature pack** (system + per-use-case mermaid, ordered context-rich tasks, unit/e2e/
+  acceptance stubs, ready-made curls) as a self-contained HTML page (read → approve → run curls → verify)
+  + markdown + optional Confluence. Generates only; the agent + dev execute. MCP `feature_wizard`.
+  First-time auth: [docs/SOURCES_SETUP.md](docs/SOURCES_SETUP.md). Design: [docs/WIZARD-DESIGN.md](docs/WIZARD-DESIGN.md).
 
 ## Repo map
 

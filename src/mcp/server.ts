@@ -21,6 +21,7 @@ import { pushFolder } from '../core/push.js';
 import { loadTraceConfig } from '../core/trace/config.js';
 import { runTrace, renderAll, requirementStatus, gatherRequirements } from '../core/trace/index.js';
 import { runAcceptance } from '../core/trace/acceptance/orchestrate.js';
+import { runWizard } from '../core/wizard/wizard.js';
 import { resolveStoreDir } from '../core/trace/store.js';
 import { resolveTasksConfig } from '../core/trace/config.js';
 import { addTask, listTasksFiltered, getTask, setTaskStatus, linkTask } from '../core/trace/tasks/ops.js';
@@ -293,6 +294,54 @@ server.registerTool(
       return {
         content: [{ type: 'text' as const, text: lines.join('\n') }],
         structuredContent: { passed: summary.passed, failed: summary.failed, total: summary.total, outPath: summary.outPath, specCount: summary.specCount },
+      };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
+);
+
+server.registerTool(
+  'feature_wizard',
+  {
+    title: 'Feature lifecycle wizard → dev-ready feature pack',
+    description:
+      'Turn a feature idea + its requirements (Jira/Confluence/markdown) + the existing code into a ' +
+      'dev-ready package: gather/create requirements → analyze (system + per-use-case mermaid, gap ' +
+      'analysis) → ordered context-rich tasks → unit/e2e/acceptance test stubs + ready-made curls, then ' +
+      'write a self-contained HTML "feature pack" (read the data-flow → approve → run the curls → verify) ' +
+      'plus a markdown mirror. Generates only — the agent + developer implement and verify. Set ' +
+      'analyze:false to skip the AI step. source jira/confluence need creds (.env; see SOURCES_SETUP.md).',
+    inputSchema: {
+      feature: z.string().describe('The feature / idea name.'),
+      source: z.enum(['jira', 'confluence', 'both', 'none']).optional().describe('Requirement source (default none = local markdown).'),
+      requirements: z.enum(['new', 'pull', 'clean']).optional().describe('new (scaffold), pull (from sources), or clean.'),
+      analyze: z.boolean().optional().describe('Run the AI analyze step (default true; needs an AI key).'),
+      configPath: z.string().optional().describe('Path to acp-trace.json (default ./acp-trace.json).'),
+      publishConfluence: z.boolean().optional().describe('Also publish the technical analysis to Confluence (live).'),
+    },
+  },
+  async (args) => {
+    try {
+      const configPath = resolve(args.configPath ?? 'acp-trace.json');
+      const config = loadTraceConfig(configPath);
+      const result = await runWizard(config, dirname(configPath), {
+        feature: args.feature,
+        source: args.source,
+        requirements: args.requirements,
+        analyze: args.analyze,
+        publishConfluence: args.publishConfluence,
+      });
+      const p = result.pack;
+      const lines = [
+        `Feature pack: ${result.htmlPath}`,
+        `${p.requirements.length} requirement(s) · ${p.tasks.length} task(s) · ${p.useCases.length} diagram(s) · ${p.tests.length} test(s) · ${p.curls.length} curl(s)`,
+        result.confluenceUrl ? `Confluence: ${result.confluenceUrl}` : 'Markdown mirror: ' + result.mdPath,
+        'Open the HTML: read the data-flow, approve the tasks, run the curls, verify.',
+      ];
+      return {
+        content: [{ type: 'text' as const, text: lines.join('\n') }],
+        structuredContent: { dir: result.dir, htmlPath: result.htmlPath, mdPath: result.mdPath, requirements: p.requirements.length, tasks: p.tasks.length, useCases: p.useCases.length, curls: p.curls.length },
       };
     } catch (err) {
       return errorResult(err);

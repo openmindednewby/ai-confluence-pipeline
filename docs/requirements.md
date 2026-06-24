@@ -18,6 +18,12 @@ capability; tasks in `.acp/tasks/` link to these. Tag tests with `@KAT-<n>` to m
 - KAT-7 Distribution: npm (`katastasi` + `@dloizides/katastasi`), Docker (GHCR), GitHub Action,
   GitLab/pre-commit templates.
 
+## In progress
+
+- KAT-10 Feature Lifecycle Wizard (`katastasi wizard`): idea + requirements + code → a dev-ready feature
+  pack (system + per-use-case mermaid, ordered context-rich tasks, unit/e2e/acceptance stubs, ready-made
+  curls) as a self-contained HTML page + markdown + Confluence. Slice 1 shipped; later phases pending.
+
 ## Pending
 
 - KAT-5 Bidirectional sync (Phase 3): a 3-way reconciler (base/local/remote), revision-tracked,

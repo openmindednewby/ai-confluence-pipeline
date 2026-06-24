@@ -180,6 +180,22 @@ katastasi trace                         # fold results into per-requirement stat
 `--fail-on none|fail` (default `fail`). Runner `baseUrl`/`headers`/`setup` come from the config `runner`
 block; secrets are read from env via `{{env.NAME}}`.
 
+### Feature wizard (`katastasi wizard`)
+
+Guided idea→dev-ready-pack flow (full guide: [WIZARD-DESIGN.md](WIZARD-DESIGN.md); first-time Jira/Confluence
+auth: [SOURCES_SETUP.md](SOURCES_SETUP.md)).
+
+```bash
+katastasi wizard                                  # interactive prompts (source / requirements / feature)
+katastasi wizard --feature "Login" --source jira --requirements pull   # scriptable
+katastasi wizard --feature "Login" --source none --no-analyze          # no AI; requirements-only pack
+katastasi wizard check --source both              # credential doctor (what's missing + how to fix)
+```
+
+`katastasi wizard` flags: `--config`, `--feature`, `--source jira|confluence|both|none`,
+`--requirements new|pull|clean`, `--no-analyze`, `--base-url <url>` (woven into the curls),
+`--publish-confluence`. Output: `.acp/features/<name>/feature-pack.html` + `feature-pack.md`.
+
 ## MCP server (for Claude / agents)
 
 The server exposes two tools that take **raw markdown strings** (what an agent has in memory):
@@ -204,6 +220,7 @@ The server exposes two tools that take **raw markdown strings** (what an agent h
 as a mermaid flow → unit + e2e tests → trace).
 | `requirements_trace` | **Traceability.** Build the RTM from an `acp-trace.json`: which requirements are verified / failing / unverified / specified + drift + orphan tests + regressions vs the last run, at the current git commit. Args: `configPath?`, `format?` (`markdown`\|`json`), `run?` (re-run the suites first). Returns the report + structured stats. |
 | `test_run` | **Acceptance.** Run requirement-first acceptance tests (HTTP + CLI) from `.acp/tests` specs + inline ` ```acp-test ` blocks, write JUnit keyed by requirement (then call `requirements_trace` to flip verified). Args: `configPath?`, `req?`, `baseUrl?`, `out?`. Returns per-case pass/fail + the results path. |
+| `feature_wizard` | **Wizard.** Idea + requirements (Jira/Confluence/markdown) + code → a dev-ready feature pack: system + per-use-case mermaid, ordered context-rich tasks, unit/e2e/acceptance stubs + ready-made curls → a self-contained `feature-pack.html` (+ markdown, + optional Confluence). Generates only. Args: `feature`, `source?`, `requirements?`, `analyze?`, `configPath?`, `publishConfluence?`. |
 
 ### Register in Claude Code
 
