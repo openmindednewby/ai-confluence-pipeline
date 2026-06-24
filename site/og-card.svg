@@ -21,5 +21,5 @@
   <text x="520" y="270" fill="#e7e9ee" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="92" font-weight="700">Katastasi</text>
   <text x="522" y="330" fill="#9aa3b2" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="34">Local-first feature onboarding for devs</text>
   <text x="522" y="392" fill="#5b8def" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="32">npx katastasi web</text>
-  <text x="522" y="455" fill="#9aa3b2" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="26">Jira / Confluence → system design · DB changes · tasks · tests · sync</text>
+  <text x="522" y="455" fill="#9aa3b2" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="26">system design · DB changes · ordered tasks · tests · sync</text>
 </svg>
