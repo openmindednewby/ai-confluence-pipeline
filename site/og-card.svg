@@ -1,0 +1,25 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kg" x1="0" y1="0" x2="360" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5b8def"/>
+      <stop offset="1" stop-color="#2ea043"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0f1115"/>
+  <!-- icon tile -->
+  <g transform="translate(96,135)">
+    <rect width="360" height="360" rx="82" fill="url(#kg)"/>
+    <g transform="translate(0,0) scale(0.703)" fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M174 120 V392"/>
+      <path d="M174 256 L350 120"/>
+      <path d="M174 256 L350 392"/>
+    </g>
+    <circle cx="276" cy="276" r="24" fill="#ffffff"/>
+    <path d="M264 276 L273 285 L289 268" fill="none" stroke="#2ea043" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- wordmark + tagline -->
+  <text x="520" y="270" fill="#e7e9ee" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="92" font-weight="700">Katastasi</text>
+  <text x="522" y="330" fill="#9aa3b2" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="34">Local-first feature onboarding for devs</text>
+  <text x="522" y="392" fill="#5b8def" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="32">npx katastasi web</text>
+  <text x="522" y="455" fill="#9aa3b2" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="26">Jira / Confluence → system design · DB changes · tasks · tests · sync</text>
+</svg>
