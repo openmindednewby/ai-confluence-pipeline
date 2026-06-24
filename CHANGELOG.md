@@ -31,6 +31,27 @@ A guided idea→dev-ready-pack flow (design: [docs/WIZARD-DESIGN.md](docs/WIZARD
   phases (per-design): per-endpoint data-flow diagrams, dependency task ordering, curl id-sourcing,
   approve/verify export, requirement-change diff.
 
+## [Unreleased] — Bidirectional sync v1 (Phase 3)
+
+A 3-way reconciler for `.acp/tasks ⇄ GitHub issues / Jira` — never silently loses an edit
+(guide: [docs/SYNC.md](docs/SYNC.md)).
+
+### Added
+- **`katastasi sync`** — combined safe-both reconcile (push local-only, pull remote-only, flag
+  both-changed), preview by default, `--apply` to write, `--push-only`/`--pull-only`, `--binding`,
+  `--fail-on conflict`. `katastasi sync status` shows the recorded links.
+- **3-way core** — base/local/remote classifier (skip/push/pull/converged/conflict); `.acp/sync/state.json`
+  (per-record base snapshot + remote revision); conflicts written to `.acp/sync/conflicts/`, never applied.
+- **Adapters** — GitHub Issues + Jira (token/Basic auth, optimistic concurrency via revision re-check,
+  status round-trip via a `statusMap`, Jira body as markdown⇄ADF). New `sync` config block (creds from env).
+- **Auto-create + link** — a new local task creates an issue and writes its id/url back into the task
+  frontmatter (new optional `labels`/`remoteId`/`remoteUrl` Task fields); a new issue creates a task.
+  Deletions are flagged, never auto-applied.
+- **MCP** — `sync_preview` / `sync_apply` (22 tools).
+
+### Notes
+- v1 is conflict-flagging (no auto-merge). v2 = field-level merge; v3 = interactive resolution.
+
 ## [0.4.0] — 2026-06-22 — Acceptance test runner (Phase 2)
 
 A built-in **requirement-first acceptance runner** — the third pillar (see

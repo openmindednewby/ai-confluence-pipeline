@@ -45,7 +45,7 @@ test('runSync preview: reports would-create, writes nothing', async () => {
   assert.deepEqual(syncLinks(ghConfig, dir)[0].links, []); // no state saved
 });
 
-test('runSync apply: creates issue, status mapped done→closed, links + state persisted', async () => {
+test('runSync apply: creates issue, status mapped done→closed, links + state persisted @KAT-5', async () => {
   const dir = repo([task('TASK-1', { title: 'Login', status: 'done' })]);
   const adapter = new FakeAdapter();
   const res = await runSync(ghConfig, dir, { apply: true, adapters: { 'tasks-gh': adapter }, today });

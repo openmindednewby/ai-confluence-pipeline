@@ -204,6 +204,22 @@ Configure the generated curls in `acp-trace.json` so they're copy-paste-runnable
 }
 ```
 
+### Bidirectional sync (`katastasi sync`)
+
+Reconcile `.acp/tasks ⇄ GitHub issues / Jira` 3-way (full guide: [SYNC.md](SYNC.md)).
+
+```bash
+katastasi sync                 # preview (no writes)
+katastasi sync --apply         # push local-only + pull remote-only, flag conflicts
+katastasi sync --apply --push-only   # or --pull-only
+katastasi sync --binding tasks-github --apply
+katastasi sync status          # recorded task↔remote links (no network)
+```
+
+`katastasi sync` flags: `--config`, `--apply`, `--push-only`, `--pull-only`, `--binding <id>`,
+`--fail-on none|conflict`. Configure via a `sync` block in `acp-trace.json`; creds from env
+(`GITHUB_TOKEN` / `JIRA_*`).
+
 ## MCP server (for Claude / agents)
 
 The server exposes two tools that take **raw markdown strings** (what an agent has in memory):
@@ -228,6 +244,7 @@ The server exposes two tools that take **raw markdown strings** (what an agent h
 as a mermaid flow → unit + e2e tests → trace).
 | `requirements_trace` | **Traceability.** Build the RTM from an `acp-trace.json`: which requirements are verified / failing / unverified / specified + drift + orphan tests + regressions vs the last run, at the current git commit. Args: `configPath?`, `format?` (`markdown`\|`json`), `run?` (re-run the suites first). Returns the report + structured stats. |
 | `test_run` | **Acceptance.** Run requirement-first acceptance tests (HTTP + CLI) from `.acp/tests` specs + inline ` ```acp-test ` blocks, write JUnit keyed by requirement (then call `requirements_trace` to flip verified). Args: `configPath?`, `req?`, `baseUrl?`, `out?`. Returns per-case pass/fail + the results path. |
+| `sync_preview` / `sync_apply` | **Sync.** Reconcile `.acp/tasks ⇄ GitHub issues / Jira` 3-way; preview reports push/pull/conflict, apply writes the safe subset (conflicts → `.acp/sync/conflicts/`). Args: `configPath?`, `direction?` (both\|push\|pull), `binding?`. Creds from env. |
 | `feature_wizard` | **Wizard.** Idea + requirements (Jira/Confluence/markdown) + code → a dev-ready feature pack: system + per-use-case mermaid, ordered context-rich tasks, unit/e2e/acceptance stubs + ready-made curls → a self-contained `feature-pack.html` (+ markdown, + optional Confluence). Generates only. Args: `feature`, `source?`, `requirements?`, `analyze?`, `configPath?`, `publishConfluence?`. |
 
 ### Register in Claude Code
