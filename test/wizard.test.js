@@ -227,6 +227,19 @@ test('runWizard: first run has no diff; re-run after a requirement edit shows th
   assert.match(readFileSync(second.mdPath, 'utf8'), /## Changes since last run[\s\S]*added: FEAT-2/);
 });
 
+test('runWizard: dbChanges flows into the feature pack (html + md sections)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wz-db-'));
+  mkdirSync(join(dir, 'docs'), { recursive: true });
+  writeFileSync(join(dir, 'docs/requirements.md'), '# Requirements\n\n- [ ] FEAT-1 SSO\n');
+  const config = parseTraceConfig(JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [] }] }));
+  const chat = async () => JSON.stringify({ gapAnalysis: 'g', technicalAnalysis: '# T', dbChanges: ['add column users.sso_id'], tasks: [{ key: 'FEAT-1', title: 'SSO', acceptanceCriteria: [], tests: [] }] });
+
+  const r = await runWizard(config, dir, { feature: 'SSO', source: 'none', dbChanges: true, chat });
+  assert.deepEqual(r.pack.dbChanges, ['add column users.sso_id']);
+  assert.match(readFileSync(r.mdPath, 'utf8'), /## Database \/ migration changes[\s\S]*users\.sso_id/);
+  assert.match(readFileSync(r.htmlPath, 'utf8'), /Database \/ migration changes/);
+});
+
 test('runWizard: --no-analyze still produces a pack (requirements only, no AI)', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'wz-noai-'));
   mkdirSync(join(dir, 'docs'), { recursive: true });

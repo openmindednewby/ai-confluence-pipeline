@@ -551,6 +551,7 @@ interface WizardAnswers {
   feature: string;
   source: WizardSource;
   requirements: 'new' | 'pull' | 'clean';
+  dbChanges: boolean;
 }
 
 function normalizeSource(s: string | undefined): WizardSource {
@@ -561,9 +562,9 @@ function normalizeReqs(s: string | undefined): WizardAnswers['requirements'] {
 }
 
 /** Collect the wizard inputs: from flags if `--feature` is given, else interactive prompts in a TTY. */
-async function collectWizardAnswers(opts: { feature?: string; source?: string; requirements?: string }): Promise<WizardAnswers | null> {
+async function collectWizardAnswers(opts: { feature?: string; source?: string; requirements?: string; dbChanges?: boolean }): Promise<WizardAnswers | null> {
   if (opts.feature) {
-    return { feature: opts.feature, source: normalizeSource(opts.source), requirements: normalizeReqs(opts.requirements) };
+    return { feature: opts.feature, source: normalizeSource(opts.source), requirements: normalizeReqs(opts.requirements), dbChanges: !!opts.dbChanges };
   }
   if (!process.stdin.isTTY) {
     process.stderr.write('\n  Error: --feature is required when not interactive (e.g. --feature "Login" --source none).\n');
@@ -581,7 +582,8 @@ async function collectWizardAnswers(opts: { feature?: string; source?: string; r
     }
     const source = normalizeSource(await ask('Source — jira / confluence / both / none?', 'none'));
     const requirements = normalizeReqs(await ask('Requirements — new / pull / clean?', 'new'));
-    return { feature, source, requirements };
+    const dbChanges = /^y/i.test(await ask('Does this feature need DB changes? (y/N)', 'n'));
+    return { feature, source, requirements, dbChanges };
   } finally {
     rl.close();
   }
@@ -652,6 +654,7 @@ const wizardCmd = program
   .option('--source <kind>', 'jira | confluence | both | none (default: none)')
   .option('--requirements <mode>', 'new | pull | clean (default: new)')
   .option('--no-analyze', 'skip the AI analyze step (no mermaid / tasks generation)')
+  .option('--db-changes', 'this feature needs DB changes → have the AI enumerate every migration', false)
   .option('--base-url <url>', 'base URL woven into the generated curls')
   .option('--publish-confluence', 'also publish the technical analysis to Confluence (live)', false)
   .action(async (opts) => {
@@ -680,6 +683,7 @@ const wizardCmd = program
         source: answers.source,
         requirements: answers.requirements,
         analyze: opts.analyze,
+        dbChanges: answers.dbChanges,
         publishConfluence: opts.publishConfluence,
         baseUrl: opts.baseUrl,
         now: () => new Date().toISOString().slice(0, 16).replace('T', ' '),

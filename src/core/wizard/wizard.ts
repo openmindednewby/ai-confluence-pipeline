@@ -64,6 +64,7 @@ export interface WizardOptions {
   source?: WizardSource;
   requirements?: 'new' | 'pull' | 'clean';
   analyze?: boolean; // default true
+  dbChanges?: boolean; // the dev said "yes, this needs DB changes" → AI enumerates them
   chat?: ChatFn; // inject the AI (tests)
   publishConfluence?: boolean;
   baseUrl?: string; // woven into the curls
@@ -207,6 +208,7 @@ export function buildFeaturePack(args: BuildArgs): FeaturePack {
     requirements: args.requirements.map((r) => ({ key: r.key, title: r.title, status: r.declaredStatus ?? undefined })),
     systemMermaid: args.analyzeResult?.systemDiagram ?? extractFirstMermaid(args.techMd),
     useCases: tasks.filter((t) => t.flowMermaid).map((t) => ({ key: t.key, title: t.title, mermaid: t.flowMermaid })),
+    ...(args.analyzeResult?.dbChanges?.length ? { dbChanges: args.analyzeResult.dbChanges } : {}),
     gapAnalysis: args.gapMd ? args.gapMd.replace(/^#\s+Gap Analysis\s*/i, '').trim() : undefined,
     tasks: tasks.map((t) => ({ key: t.key, title: t.title, requirements: [t.key], context: taskContext(t, args.outDirRel, reqUrl.get(t.key)) })),
     tests: buildTests(tasks, args.analyzeResult?.acceptanceSpecs ?? []),
@@ -245,7 +247,7 @@ export async function runWizard(config: TraceConfig, baseDir: string, opts: Wiza
   let techMd: string | undefined;
   let gapMd: string | undefined;
   if (opts.analyze !== false) {
-    analyzeResult = await analyze(config, baseDir, { chat: opts.chat, scaffold: true });
+    analyzeResult = await analyze(config, baseDir, { chat: opts.chat, scaffold: true, dbChanges: opts.dbChanges });
     techMd = readMaybe(join(analyzeResult.outDir, 'technical-analysis.md'));
     gapMd = readMaybe(join(analyzeResult.outDir, 'gap-analysis.md'));
   }

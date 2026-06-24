@@ -50,6 +50,7 @@ export interface FeaturePack {
   requirements: FeatureRequirement[];
   systemMermaid?: string;
   useCases: FeatureUseCase[];
+  dbChanges?: string[]; // DB/migration changes to apply in production
   gapAnalysis?: string;
   tasks: FeatureTask[];
   tests: FeatureTest[];
@@ -80,6 +81,11 @@ export function renderFeaturePackMarkdown(pack: FeaturePack): string {
   for (const u of pack.useCases) {
     lines.push(`### ${u.key} — ${u.title}`, '');
     if (u.mermaid) lines.push('```mermaid\n' + u.mermaid.trim() + '\n```', '');
+  }
+  if (pack.dbChanges?.length) {
+    lines.push('## Database / migration changes', '');
+    for (const c of pack.dbChanges) lines.push(`- [ ] ${c}`);
+    lines.push('');
   }
   lines.push('## Tasks (ordered)', '');
   for (const t of pack.tasks) {
@@ -156,6 +162,10 @@ export function renderFeaturePack(pack: FeaturePack, opts: RenderOptions = {}): 
     ? pack.curls.map((c, i) => `<section class="card"><label><input type="checkbox" data-key="curl-${i}"> <b>${esc(c.name)}</b></label>${c.note ? `<p class="note">${esc(c.note)}</p>` : ''}<pre class="curl"><code>${esc(curlCommand(c, baseUrl))}</code></pre><button class="copy" data-copy="curl-code-${i}">Copy</button><script type="text/plain" id="curl-code-${i}">${esc(curlCommand(c, baseUrl))}</script></section>`).join('\n')
     : '<p class="muted">No ready-made curls yet (added in a later wizard phase).</p>';
 
+  const dbCard = pack.dbChanges?.length
+    ? `<h2>Database / migration changes <span class="meta">(apply before / during deploy)</span></h2><section class="card"><ul>${pack.dbChanges.map((c, i) => `<li><label><input type="checkbox" data-key="db-${i}"> ${esc(c)}</label></li>`).join('')}</ul></section>`
+    : '';
+
   const confluenceLink = pack.docs.confluenceUrl ? `<a href="${esc(pack.docs.confluenceUrl)}">Confluence page</a> · ` : '';
 
   const changesCard = hasChanges(pack.changes)
@@ -198,6 +208,8 @@ export function renderFeaturePack(pack: FeaturePack, opts: RenderOptions = {}): 
   <h2>System data-flow</h2><section class="card">${mermaidBlock('system', pack.systemMermaid)}</section>
 
   <h2>Use cases</h2>${useCaseBlocks}
+
+  ${dbCard}
 
   <h2>Tasks <span class="meta">(tick to approve)</span></h2><ul>${taskBlocks}</ul>
 
