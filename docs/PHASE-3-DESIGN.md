@@ -1,5 +1,10 @@
 # Phase 3 — Bidirectional sync (incremental, safe)
 
+> **v1 SHIPPED 2026-06-24.** Built per the build-start decisions: GitHub + Jira adapters, combined
+> safe-both, `.acp/tasks ⇄ issues` incl. status, preview-default + auto-create + flag-deletions.
+> User guide: **[SYNC.md](SYNC.md)**. v2 (field-merge) + v3 (interactive) still pending. This doc is the
+> design record.
+
 *Scope drafted 2026-06-23. The reconciliation layer: edit either side — local markdown or Jira /
 Confluence / issues — and have them meet in the middle **without ever silently losing an edit**.
 Implements the sync decision from [VISION.md](../VISION.md) §4. **Open questions in §6 are resolved at

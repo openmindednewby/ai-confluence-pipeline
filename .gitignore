@@ -25,3 +25,4 @@ custom-prompts/custom-prompts.js
 .acp/rtm.html
 .acp/rtm.json
 .acp/features/
+.acp/sync/
