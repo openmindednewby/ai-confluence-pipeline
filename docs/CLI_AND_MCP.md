@@ -196,6 +196,14 @@ katastasi wizard check --source both              # credential doctor (what's mi
 `--requirements new|pull|clean`, `--no-analyze`, `--base-url <url>` (woven into the curls),
 `--publish-confluence`. Output: `.acp/features/<name>/feature-pack.html` + `feature-pack.md`.
 
+Configure the generated curls in `acp-trace.json` so they're copy-paste-runnable:
+```jsonc
+"wizard": {
+  "baseUrl": "http://localhost:8084",
+  "fixtures": { "id": "42", "menuId": "m_7" }   // fills {id} / :id / {{id}} with real ids that have data
+}
+```
+
 ## MCP server (for Claude / agents)
 
 The server exposes two tools that take **raw markdown strings** (what an agent has in memory):
