@@ -103,9 +103,9 @@ a hosted multi-user wizard service; auto-seeding test data; bidirectional task s
 ## 6. Open sub-questions to resolve at build-start of each later phase
 1. **Per-endpoint mermaid depth** — sequence diagrams (request→service→db→response) vs flowcharts? One per
    REST endpoint, or per use-case (which may span endpoints)?
-2. **Curl id-sourcing** — where do "real ids that have data" come from: a configured fixtures file, a
-   read-only GET against a seeded env, or placeholders the dev fills? (Proposed: a `wizard.fixtures` map +
-   placeholders fallback.)
+2. ~~**Curl id-sourcing**~~ — **RESOLVED (TASK-26):** a `wizard.fixtures` map in `acp-trace.json` fills
+   `{id}` / `:id` / `{{id}}` placeholders in curl paths + bodies with real values; unresolved names get a
+   "set wizard.fixtures: …" note. (Seeded-GET id discovery can come later.)
 3. **Task ordering heuristic** — explicit `dependsOn` in the analyze output vs inferred from
    requirement/code references vs topological from endpoint call-graph?
 4. **E2E framework** — assume Playwright (repo default) or read it from the trace config's test techs?

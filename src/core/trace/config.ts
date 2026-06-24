@@ -104,6 +104,17 @@ export const traceConfigSchema = z.object({
       setup: z.object({ name: z.string().optional(), steps: z.array(z.unknown()).min(1) }).optional(),
     })
     .optional(),
+  /**
+   * Feature wizard settings. `baseUrl` is woven into the generated curls; `fixtures` maps id-placeholder
+   * names (e.g. `{id}` / `:id` / `{{id}}` in a path) to REAL values that have data, so the curls are
+   * copy-paste-runnable. Unresolved placeholders are kept with a note telling you which fixture to set.
+   */
+  wizard: z
+    .object({
+      baseUrl: z.string().optional(),
+      fixtures: z.record(z.string()).optional(),
+    })
+    .optional(),
   /** Run history: where git-stamped snapshots are stored + an optional named baseline to diff against. */
   history: z
     .object({ dir: z.string().optional(), baseline: z.string().optional(), keep: z.number().optional() })

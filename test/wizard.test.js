@@ -34,6 +34,33 @@ test('curlsFromAcceptance: HTTP steps → curls, ids flagged', () => {
   assert.match(curls[1].note, /real id/);
 });
 
+test('curlsFromAcceptance: fixtures fill ids ({id}/:id/{{id}}); unresolved → note', () => {
+  const tasks = [
+    { key: 'P-1', title: 'Get', acceptanceCriteria: [], tests: [],
+      acceptanceTests: [
+        { name: 'get user', steps: [{ GET: '/users/{id}', expect: { status: 200 } }] },
+        { name: 'get menu', steps: [{ GET: '/menus/:menuId/items', body: { ref: '{{owner}}' }, expect: { status: 200 } }] },
+      ] },
+  ];
+  const curls = curlsFromAcceptance(tasks, { id: '42', menuId: 'm_7' });
+  assert.equal(curls[0].url, '/users/42'); // {id} resolved
+  assert.equal(curls[0].note, undefined); // fully resolved → ready
+  assert.equal(curls[1].url, '/menus/m_7/items'); // :menuId resolved
+  assert.deepEqual(curls[1].body, { ref: '{{owner}}' }); // owner has no fixture → kept
+  assert.match(curls[1].note, /set wizard\.fixtures: owner/); // unresolved flagged
+});
+
+test('config: wizard block (baseUrl + fixtures) parses + stays optional', () => {
+  const cfg = parseTraceConfig(JSON.stringify({
+    scopes: [{ requirements: [{ type: 'markdown', path: 'r.md' }] }],
+    wizard: { baseUrl: 'http://localhost:8084', fixtures: { id: '42', menuId: 'm_7' } },
+  }));
+  assert.equal(cfg.wizard.baseUrl, 'http://localhost:8084');
+  assert.equal(cfg.wizard.fixtures.id, '42');
+  const bare = parseTraceConfig(JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'r.md' }] }] }));
+  assert.equal(bare.wizard, undefined);
+});
+
 test('wizardCheck: none needs nothing; jira flags missing env', () => {
   assert.equal(wizardCheck('none').ok, true);
   const saved = ['JIRA_BASE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN'].map((k) => [k, process.env[k]]);

@@ -49,8 +49,34 @@ export function extractFirstMermaid(md: string | undefined): string | undefined 
   return m ? m[1].trim() : undefined;
 }
 
-/** Pull ready-made curls out of a task's executable acceptance cases (the HTTP steps). */
-export function curlsFromAcceptance(tasks: AnalyzeTask[]): FeatureCurl[] {
+export type Fixtures = Record<string, string>;
+
+const PLACEHOLDER = /\{\{(\w+)\}\}|\{(\w+)\}|:(\w+)/g;
+
+/** Replace `{name}` / `:name` / `{{name}}` with a fixture value; record any name with no fixture. */
+function substituteFixtures(s: string, fixtures: Fixtures | undefined, unresolved: Set<string>): string {
+  return s.replace(PLACEHOLDER, (m, a, b, c) => {
+    const name = a ?? b ?? c;
+    if (fixtures && Object.prototype.hasOwnProperty.call(fixtures, name)) return fixtures[name];
+    unresolved.add(name);
+    return m;
+  });
+}
+
+/** Deep-substitute fixture placeholders inside a JSON body (string leaves only). */
+function applyFixturesDeep(value: unknown, fixtures: Fixtures | undefined, unresolved: Set<string>): unknown {
+  if (typeof value === 'string') return substituteFixtures(value, fixtures, unresolved);
+  if (Array.isArray(value)) return value.map((v) => applyFixturesDeep(v, fixtures, unresolved));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = applyFixturesDeep(v, fixtures, unresolved);
+    return out;
+  }
+  return value;
+}
+
+/** Pull ready-made curls out of a task's executable acceptance cases (the HTTP steps), with ids filled. */
+export function curlsFromAcceptance(tasks: AnalyzeTask[], fixtures?: Fixtures): FeatureCurl[] {
   const curls: FeatureCurl[] = [];
   for (const t of tasks) {
     if (!Array.isArray(t.acceptanceTests)) continue;
@@ -60,10 +86,11 @@ export function curlsFromAcceptance(tasks: AnalyzeTask[]): FeatureCurl[] {
       for (const s of steps) {
         const methodKey = Object.keys(s).find((k) => isHttpMethod(k));
         if (!methodKey) continue;
-        const url = String(s[methodKey]);
+        const unresolved = new Set<string>();
+        const url = substituteFixtures(String(s[methodKey]), fixtures, unresolved);
         const curl: FeatureCurl = { name: `${t.key} — ${name}`, method: methodKey.toUpperCase(), url };
-        if (s.body !== undefined) curl.body = s.body;
-        if (/\{|:id|<|>/.test(url)) curl.note = 'replace the id placeholder with a real id that has data';
+        if (s.body !== undefined) curl.body = applyFixturesDeep(s.body, fixtures, unresolved);
+        if (unresolved.size) curl.note = `set wizard.fixtures: ${[...unresolved].join(', ')} (real id(s) with data)`;
         curls.push(curl);
       }
     }
@@ -128,6 +155,7 @@ interface BuildArgs {
   outDirRel: string;
   confluenceUrl?: string;
   generatedAt?: string;
+  fixtures?: Fixtures;
 }
 
 /** Assemble a FeaturePack from the gathered requirements + the analyze output. Pure. */
@@ -144,7 +172,7 @@ export function buildFeaturePack(args: BuildArgs): FeaturePack {
     gapAnalysis: args.gapMd ? args.gapMd.replace(/^#\s+Gap Analysis\s*/i, '').trim() : undefined,
     tasks: tasks.map((t) => ({ key: t.key, title: t.title, requirements: [t.key], context: taskContext(t, args.outDirRel, reqUrl.get(t.key)) })),
     tests: buildTests(tasks, args.analyzeResult?.acceptanceSpecs ?? []),
-    curls: curlsFromAcceptance(tasks),
+    curls: curlsFromAcceptance(tasks, args.fixtures),
     docs: { mdDir: 'feature-pack.md', confluenceUrl: args.confluenceUrl },
   };
 }
@@ -187,12 +215,14 @@ export async function runWizard(config: TraceConfig, baseDir: string, opts: Wiza
   }
 
   // ── Assemble + write ──────────────────────────────────────────────────────
-  const pack = buildFeaturePack({ feature: opts.feature, source, requirements, analyzeResult, techMd, gapMd, outDirRel, confluenceUrl, generatedAt: opts.now?.() });
+  const fixtures = config.wizard?.fixtures;
+  const baseUrl = opts.baseUrl ?? config.wizard?.baseUrl;
+  const pack = buildFeaturePack({ feature: opts.feature, source, requirements, analyzeResult, techMd, gapMd, outDirRel, confluenceUrl, generatedAt: opts.now?.(), fixtures });
   const dir = join(baseDir, '.acp', 'features', slug);
   mkdirSync(dir, { recursive: true });
   const htmlPath = join(dir, 'feature-pack.html');
   const mdPath = join(dir, 'feature-pack.md');
-  writeFileSync(htmlPath, renderFeaturePack(pack, { baseUrl: opts.baseUrl }), 'utf8');
+  writeFileSync(htmlPath, renderFeaturePack(pack, { baseUrl }), 'utf8');
   writeFileSync(mdPath, renderFeaturePackMarkdown(pack), 'utf8');
 
   return { dir, htmlPath, mdPath, pack, confluenceUrl };
