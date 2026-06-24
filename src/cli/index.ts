@@ -7,6 +7,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve, join, relative } from 'node:path';
+import { createInterface } from 'node:readline';
 import { Command } from 'commander';
 import { publishJira } from '../core/jira.js';
 import { publishConfluence } from '../core/confluence.js';
@@ -30,6 +31,7 @@ import { importJiraTasks } from '../core/trace/tasks/importJira.js';
 import type { TaskVerification } from '../core/trace/tasks/verify.js';
 import type { Task } from '../core/trace/tasks/model.js';
 import { runAcceptance } from '../core/trace/acceptance/orchestrate.js';
+import { runWizard, wizardCheck, ensureRequirementsDoc, type WizardSource } from '../core/wizard/wizard.js';
 import { serve } from '../core/trace/serve.js';
 import { serveCollector } from '../core/trace/collector.js';
 import { generateQuestions } from '../core/questions/generate.js';
@@ -542,6 +544,105 @@ program
     } catch (err) {
       fail(err);
     }
+  });
+
+interface WizardAnswers {
+  feature: string;
+  source: WizardSource;
+  requirements: 'new' | 'pull' | 'clean';
+}
+
+function normalizeSource(s: string | undefined): WizardSource {
+  return s === 'jira' || s === 'confluence' || s === 'both' ? s : 'none';
+}
+function normalizeReqs(s: string | undefined): WizardAnswers['requirements'] {
+  return s === 'pull' || s === 'clean' ? s : 'new';
+}
+
+/** Collect the wizard inputs: from flags if `--feature` is given, else interactive prompts in a TTY. */
+async function collectWizardAnswers(opts: { feature?: string; source?: string; requirements?: string }): Promise<WizardAnswers | null> {
+  if (opts.feature) {
+    return { feature: opts.feature, source: normalizeSource(opts.source), requirements: normalizeReqs(opts.requirements) };
+  }
+  if (!process.stdin.isTTY) {
+    process.stderr.write('\n  Error: --feature is required when not interactive (e.g. --feature "Login" --source none).\n');
+    return null;
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string, def?: string): Promise<string> =>
+    new Promise((res) => rl.question(`  ${q}${def ? ` [${def}]` : ''} `, (a) => res(a.trim() || def || '')));
+  try {
+    process.stdout.write('\n  Katastasi feature wizard\n');
+    const feature = await ask('Feature / idea name?');
+    if (!feature) {
+      process.stdout.write('  (cancelled)\n');
+      return null;
+    }
+    const source = normalizeSource(await ask('Source — jira / confluence / both / none?', 'none'));
+    const requirements = normalizeReqs(await ask('Requirements — new / pull / clean?', 'new'));
+    return { feature, source, requirements };
+  } finally {
+    rl.close();
+  }
+}
+
+const wizardCmd = program
+  .command('wizard')
+  .description('Guided feature lifecycle: source → requirements → analyze (mermaid) → tasks → tests/curls → a dev-ready HTML feature pack.')
+  .option('--config <path>', 'config file', DEFAULT_CONFIG_FILENAME)
+  .option('--feature <name>', 'the feature/idea name (skips the interactive prompt)')
+  .option('--source <kind>', 'jira | confluence | both | none (default: none)')
+  .option('--requirements <mode>', 'new | pull | clean (default: new)')
+  .option('--no-analyze', 'skip the AI analyze step (no mermaid / tasks generation)')
+  .option('--base-url <url>', 'base URL woven into the generated curls')
+  .option('--publish-confluence', 'also publish the technical analysis to Confluence (live)', false)
+  .action(async (opts) => {
+    try {
+      const configPath = resolve(opts.config);
+      const baseDir = dirname(configPath);
+      const config = loadTraceConfig(configPath);
+
+      const answers = await collectWizardAnswers(opts);
+      if (!answers) return; // user aborted
+
+      // credential doctor for non-local sources
+      if (answers.source !== 'none') {
+        const check = wizardCheck(answers.source);
+        check.lines.forEach((l) => process.stdout.write(`  ${l}\n`));
+        if (!check.ok) {
+          process.stdout.write('\n  Fix the above in .env (see docs/SOURCES_SETUP.md), then re-run.\n');
+          return;
+        }
+      }
+      if (answers.requirements !== 'pull') ensureRequirementsDoc(baseDir);
+
+      process.stdout.write(`\n  Building feature pack: "${answers.feature}"  [source: ${answers.source}]${opts.analyze ? '  (analyzing…)' : '  (no analyze)'}\n`);
+      const r = await runWizard(config, baseDir, {
+        feature: answers.feature,
+        source: answers.source,
+        requirements: answers.requirements,
+        analyze: opts.analyze,
+        publishConfluence: opts.publishConfluence,
+        baseUrl: opts.baseUrl,
+        now: () => new Date().toISOString().slice(0, 16).replace('T', ' '),
+      });
+      process.stdout.write(`\n  ${r.pack.requirements.length} requirement(s) · ${r.pack.tasks.length} task(s) · ${r.pack.useCases.length} diagram(s) · ${r.pack.curls.length} curl(s)\n`);
+      if (r.confluenceUrl) process.stdout.write(`  Confluence: ${r.confluenceUrl}\n`);
+      process.stdout.write(`\n  Feature pack → ${relative(baseDir, r.htmlPath)}\n  Open it, read the data-flow, approve the tasks, run the curls, verify.\n`);
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+wizardCmd
+  .command('check')
+  .description('Check Jira/Confluence credentials for a source and print how to fix any that are missing.')
+  .option('--source <kind>', 'jira | confluence | both | none', 'both')
+  .action((opts) => {
+    const { ok, lines } = wizardCheck(opts.source as WizardSource);
+    process.stdout.write('\n');
+    lines.forEach((l) => process.stdout.write(`  ${l}\n`));
+    process.stdout.write(ok ? '\n  All set.\n' : '\n  See docs/SOURCES_SETUP.md for first-time setup.\n');
   });
 
 program

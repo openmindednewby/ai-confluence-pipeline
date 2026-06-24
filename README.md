@@ -81,6 +81,26 @@ katastasi pipeline --ask            # two-pass: open-questions form first, then 
 (acceptance criteria + use-case flow), and scaffolded tagged unit/e2e test stubs — local and/or
 published. Guide: **[docs/TECH_ANALYSIS_FLOW.md](docs/TECH_ANALYSIS_FLOW.md)**.
 
+## Feature wizard (idea → dev-ready pack)
+
+One guided flow that turns a feature + its requirements (Jira / Confluence / markdown) + the existing
+code into a **dev-ready package** an agent or junior dev can execute without thinking hard — and a
+self-contained **HTML feature pack** the developer just reads, approves, and verifies.
+
+```bash
+katastasi wizard                       # interactive: source → requirements → analyze → tasks → pack
+katastasi wizard --feature "Login" --source jira --requirements pull   # scriptable
+katastasi wizard check --source both   # are my Jira/Confluence credentials set? (how to fix if not)
+```
+
+It gathers/creates requirements, runs `analyze` (a **system + per-use-case mermaid** data-flow + gap
+analysis), creates **ordered, context-rich tasks** (code + Jira + Confluence inline, so a low-capability
+model can execute), and emits **unit / e2e / acceptance** stubs + **ready-made curls** — then writes
+`.acp/features/<name>/feature-pack.html` (+ a markdown mirror, + optional Confluence page). The developer
+opens it, reads the data-flow, ticks **approve**, runs the **curls** (copy button), ticks **verify**.
+First-time Jira/Confluence auth: **[docs/SOURCES_SETUP.md](docs/SOURCES_SETUP.md)**. Design + roadmap:
+**[docs/WIZARD-DESIGN.md](docs/WIZARD-DESIGN.md)**.
+
 ## Task tracking
 
 Local, markdown-first tasks that link to requirements and tests — and stay honest:
