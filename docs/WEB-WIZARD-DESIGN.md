@@ -88,5 +88,9 @@ from the SPA beyond sync; a packaged desktop app (Electron) — `npx` covers it.
 - **Slice 1 ✅ (2026-06-24):** `katastasi web` → loopback `node:http` server + self-contained SPA shell
   (step rail) + working **Connect** step (`/api/env` get-status / write-`.env`). Endpoints unit-tested
   over a real ephemeral server.
-- **Next:** slice 2 = **deep discovery** (`/api/sources/discover` — epic→children+related+linked pages →
-  confirm screen), then pull → design → sync.
+- **Slice 2 ✅ (2026-06-24):** **deep discovery** — `src/core/web/discover.ts` (parseSourceUrl +
+  extractRefs + a bounded BFS following children + Jira-keys/Confluence-links found in descriptions,
+  de-duplicated) over an injectable `DiscoverClient` (real `atlassianClient.ts`; fake in tests). Endpoint
+  `POST /api/sources/discover`; SPA Source step (paste URL) + Select step (tick/untick what was found).
+- **Next:** slice 3 = **pull** the ticked items into `.acp/requirements/` (the Download step), then
+  design → review → sync.

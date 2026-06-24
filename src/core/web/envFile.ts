@@ -55,6 +55,15 @@ export function readEnvStatus(baseDir: string, processEnv: NodeJS.ProcessEnv = p
   return status;
 }
 
+/** Server-side only: the merged env values (`.env` over `process.env`) — used to build API creds, NEVER sent to the browser. */
+export function readEnvValues(baseDir: string, processEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const fileEnv = readEnvMap(baseDir);
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(processEnv)) if (typeof v === 'string') out[k] = v;
+  for (const [k, v] of Object.entries(fileEnv)) out[k] = v; // .env wins
+  return out;
+}
+
 /** Upsert non-empty keys into `.env`, preserving every other line. Returns the keys written. */
 export function writeEnvKeys(baseDir: string, kv: Record<string, string>): string[] {
   const entries = Object.entries(kv).filter(([, v]) => typeof v === 'string' && v.trim());

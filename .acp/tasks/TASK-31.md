@@ -1,7 +1,7 @@
 ---
 id: TASK-31
 title: "Web wizard: Jira epic / Confluence page DISCOVERY (list to pick from)"
-status: todo
+status: done
 requirements: [KAT-10]
 tests: []
 assignee: ~
