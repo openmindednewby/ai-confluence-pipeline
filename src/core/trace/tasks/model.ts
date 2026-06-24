@@ -19,6 +19,7 @@ export interface Task {
   created: string; // ISO date (YYYY-MM-DD)
   updated: string;
   body: string;
+  labels?: string[]; // optional; synced to issue/Jira labels (Phase 3). Omitted when empty.
 }
 
 // ── Frontmatter (minimal, tailored to task fields — not a general YAML parser) ──────────────
@@ -78,6 +79,7 @@ export function serializeTask(t: Task): string {
     `status: ${t.status}`,
     `requirements: ${arr(t.requirements)}`,
     `tests: ${arr(t.tests)}`,
+    ...(t.labels && t.labels.length ? [`labels: ${arr(t.labels)}`] : []),
     `assignee: ${t.assignee ? scalar(t.assignee) : '~'}`,
     `source: ${t.source}`,
     `created: ${t.created}`,
@@ -93,7 +95,7 @@ export function parseTask(md: string): Task {
   const { fm, body } = parseFrontmatter(md);
   const str = (k: string, d = '') => (typeof fm[k] === 'string' ? (fm[k] as string) : d);
   const list = (k: string) => (Array.isArray(fm[k]) ? (fm[k] as string[]) : []);
-  return {
+  const task: Task = {
     id: str('id'),
     title: str('title'),
     status: str('status'),
@@ -105,6 +107,8 @@ export function parseTask(md: string): Task {
     updated: str('updated'),
     body,
   };
+  if (Array.isArray(fm.labels)) task.labels = fm.labels as string[];
+  return task;
 }
 
 // ── File IO ─────────────────────────────────────────────────────────────────────────────────
