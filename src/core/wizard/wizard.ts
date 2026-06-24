@@ -7,6 +7,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { createHash } from 'node:crypto';
 import type { TraceConfig } from '../trace/config.js';
 import { gatherRequirements } from '../trace/index.js';
 import { writeRequirementsFolder } from '../trace/requirements/folder.js';
@@ -18,8 +19,43 @@ import { publishConfluence } from '../confluence.js';
 import type { ChatFn } from '../analyze/ai.js';
 import {
   renderFeaturePack, renderFeaturePackMarkdown,
-  type FeatureCurl, type FeaturePack, type FeatureTest,
+  type FeatureChanges, type FeatureCurl, type FeaturePack, type FeatureTest,
 } from './featurePack.js';
+
+type ReqHashes = Record<string, string>;
+
+/** Stable per-requirement content hash (title + declared status) for change detection. */
+export function reqHashes(reqs: Array<{ key: string; title: string; declaredStatus: string | null }>): ReqHashes {
+  const out: ReqHashes = {};
+  for (const r of reqs) out[r.key] = createHash('sha1').update(`${r.title}\n${r.declaredStatus ?? ''}`).digest('hex').slice(0, 12);
+  return out;
+}
+
+/** Diff current requirement hashes against the previous run → what was added / changed / removed. */
+export function diffRequirements(prev: ReqHashes, curr: ReqHashes): FeatureChanges {
+  const added: string[] = [];
+  const changed: string[] = [];
+  const removed: string[] = [];
+  for (const k of Object.keys(curr)) {
+    if (!(k in prev)) added.push(k);
+    else if (prev[k] !== curr[k]) changed.push(k);
+  }
+  for (const k of Object.keys(prev)) if (!(k in curr)) removed.push(k);
+  return { added, changed, removed };
+}
+
+function loadSnapshot(path: string): ReqHashes | null {
+  try {
+    const data = JSON.parse(readFileSync(path, 'utf8')) as { hashes?: ReqHashes };
+    return data.hashes ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSnapshot(path: string, hashes: ReqHashes): void {
+  writeFileSync(path, `${JSON.stringify({ hashes }, null, 2)}\n`, 'utf8');
+}
 
 export type WizardSource = 'jira' | 'confluence' | 'both' | 'none';
 
@@ -156,6 +192,7 @@ interface BuildArgs {
   confluenceUrl?: string;
   generatedAt?: string;
   fixtures?: Fixtures;
+  changes?: FeatureChanges;
 }
 
 /** Assemble a FeaturePack from the gathered requirements + the analyze output. Pure. */
@@ -166,6 +203,7 @@ export function buildFeaturePack(args: BuildArgs): FeaturePack {
     feature: args.feature,
     source: args.source,
     generatedAt: args.generatedAt,
+    ...(args.changes ? { changes: args.changes } : {}),
     requirements: args.requirements.map((r) => ({ key: r.key, title: r.title, status: r.declaredStatus ?? undefined })),
     systemMermaid: args.analyzeResult?.systemDiagram ?? extractFirstMermaid(args.techMd),
     useCases: tasks.filter((t) => t.flowMermaid).map((t) => ({ key: t.key, title: t.title, mermaid: t.flowMermaid })),
@@ -189,12 +227,18 @@ function readMaybe(path: string): string | undefined {
 export async function runWizard(config: TraceConfig, baseDir: string, opts: WizardOptions): Promise<WizardResult> {
   const source = opts.source ?? 'none';
   const slug = slugify(opts.feature);
+  const dir = join(baseDir, '.acp', 'features', slug);
+  mkdirSync(dir, { recursive: true });
+  const snapPath = join(dir, 'requirements.snapshot.json');
+  const prevSnapshot = loadSnapshot(snapPath);
 
   // ── Requirements ──────────────────────────────────────────────────────────
   const requirements = await gatherRequirements(config, baseDir);
   if (opts.requirements === 'pull') {
     writeRequirementsFolder(requirements, resolveStoreDir(baseDir, 'requirements'), true);
   }
+  const currHashes = reqHashes(requirements);
+  const changes = prevSnapshot ? diffRequirements(prevSnapshot, currHashes) : undefined; // first run = no diff
 
   // ── Analyze (AI) ──────────────────────────────────────────────────────────
   let analyzeResult: AnalyzeResult | undefined;
@@ -217,13 +261,12 @@ export async function runWizard(config: TraceConfig, baseDir: string, opts: Wiza
   // ── Assemble + write ──────────────────────────────────────────────────────
   const fixtures = config.wizard?.fixtures;
   const baseUrl = opts.baseUrl ?? config.wizard?.baseUrl;
-  const pack = buildFeaturePack({ feature: opts.feature, source, requirements, analyzeResult, techMd, gapMd, outDirRel, confluenceUrl, generatedAt: opts.now?.(), fixtures });
-  const dir = join(baseDir, '.acp', 'features', slug);
-  mkdirSync(dir, { recursive: true });
+  const pack = buildFeaturePack({ feature: opts.feature, source, requirements, analyzeResult, techMd, gapMd, outDirRel, confluenceUrl, generatedAt: opts.now?.(), fixtures, changes });
   const htmlPath = join(dir, 'feature-pack.html');
   const mdPath = join(dir, 'feature-pack.md');
   writeFileSync(htmlPath, renderFeaturePack(pack, { baseUrl }), 'utf8');
   writeFileSync(mdPath, renderFeaturePackMarkdown(pack), 'utf8');
+  saveSnapshot(snapPath, currHashes);
 
   return { dir, htmlPath, mdPath, pack, confluenceUrl };
 }
