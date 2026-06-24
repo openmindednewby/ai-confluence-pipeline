@@ -7,9 +7,13 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
 import { readEnvStatus, writeEnvKeys } from './envFile.js';
 import { renderWizardPage } from './page.js';
+import { discover, type DiscoverClient } from './discover.js';
+import { atlassianDiscoverClient } from './atlassianClient.js';
 
 export interface WebServerContext {
   baseDir: string;
+  /** Injected in tests; defaults to a real Atlassian client built from the saved `.env`. */
+  discoverClient?: DiscoverClient;
 }
 
 function send(res: ServerResponse, status: number, body: string, type = 'application/json'): void {
@@ -49,6 +53,18 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse, c
       writeEnvKeys(ctx.baseDir, kv);
       return json(res, 200, readEnvStatus(ctx.baseDir));
     }
+    if (method === 'POST' && url === '/api/sources/discover') {
+      let body: { url?: string } = {};
+      try {
+        body = JSON.parse(await readBody(req)) as { url?: string };
+      } catch {
+        return json(res, 400, { error: 'invalid JSON body' });
+      }
+      if (!body.url?.trim()) return json(res, 400, { error: 'paste a Jira issue or Confluence page URL' });
+      const client = ctx.discoverClient ?? atlassianDiscoverClient(ctx.baseDir);
+      const items = await discover(body.url, client);
+      return json(res, 200, { items });
+    }
     if (url.startsWith('/api/')) return json(res, 404, { error: `no endpoint ${method} ${url}` });
     return send(res, 404, 'Not found', 'text/plain');
   } catch (err) {
@@ -60,6 +76,7 @@ export interface StartWebOptions {
   baseDir: string;
   port?: number; // 0 = ephemeral (tests)
   host?: string; // default 127.0.0.1 (loopback only)
+  discoverClient?: DiscoverClient; // tests
 }
 
 export interface RunningWeb {
@@ -72,7 +89,7 @@ export interface RunningWeb {
 /** Start the web-wizard server. Resolves once it's listening, with the actual URL + a close(). */
 export function startWebServer(opts: StartWebOptions): Promise<RunningWeb> {
   const host = opts.host ?? '127.0.0.1';
-  const ctx: WebServerContext = { baseDir: opts.baseDir };
+  const ctx: WebServerContext = { baseDir: opts.baseDir, ...(opts.discoverClient ? { discoverClient: opts.discoverClient } : {}) };
   const server = createServer((req, res) => {
     void handleRequest(req, res, ctx);
   });

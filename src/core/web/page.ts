@@ -60,7 +60,21 @@ export function renderWizardPage(): string {
       <button>Save GitHub</button>
     </section>
 
-    <p class="muted">Next: <b>Source</b> — paste a Jira epic or Confluence page URL and the wizard will discover the related issues + pages for you to confirm. <span class="pill">coming in the next slice</span></p>
+    <h1 style="margin-top:1.4em">Source</h1>
+    <p class="sub">Paste a Jira epic or Confluence page URL. The wizard discovers its children + related/linked issues and pages — then you confirm which to pull.</p>
+    <section class="card">
+      <label>Jira / Confluence URL (or an issue key)</label>
+      <input id="src-url" placeholder="https://you.atlassian.net/browse/PROJ-12">
+      <button id="discover-btn">Discover</button>
+      <span id="discover-msg" class="muted" style="margin-left:10px"></span>
+    </section>
+
+    <div id="select-wrap" style="display:none">
+      <h1 style="margin-top:1.2em">Select <span class="pill" id="select-count"></span></h1>
+      <p class="sub">Tick what to pull as markdown. <button id="sel-all" style="padding:.2em .6em;font-size:12px">all</button> <button id="sel-none" style="padding:.2em .6em;font-size:12px;background:#333">none</button></p>
+      <section class="card"><ul id="discovered" style="list-style:none;padding:0;margin:0"></ul></section>
+      <p class="muted">Next: <b>Download</b> — pull the ticked items into <code>.acp/requirements/</code>. <span class="pill">coming in the next slice</span></p>
+    </div>
   </main>
 </div>
 <script>
@@ -84,6 +98,33 @@ export function renderWizardPage(): string {
     });
   });
   refresh();
+
+  // ── Source / Select ──
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function renderItems(items){
+    var wrap = document.getElementById('select-wrap'); var ul = document.getElementById('discovered');
+    wrap.style.display = items.length ? 'block' : 'none';
+    document.getElementById('select-count').textContent = items.length + ' found';
+    document.querySelector('nav li[data-step="select"]').className = items.length ? 'active' : 'todo';
+    ul.innerHTML = items.map(function(it, i){
+      var badge = it.type === 'jira' ? 'JIRA' : 'PAGE';
+      var via = it.via === 'pasted' ? '' : ' <span class="pill">'+it.via+'</span>';
+      var link = it.url ? ' <a href="'+escapeHtml(it.url)+'" target="_blank">open</a>' : '';
+      return '<li style="padding:.4em 0;border-bottom:1px solid var(--line)"><label><input type="checkbox" class="disc" checked data-i="'+i+'"> <span class="pill">'+badge+'</span> '+escapeHtml(it.id)+' — '+escapeHtml(it.title)+via+link+'</label></li>';
+    }).join('');
+    try { localStorage.setItem('katastasi-web:discovered', JSON.stringify(items)); } catch(e){}
+  }
+  document.getElementById('discover-btn').addEventListener('click', function(){
+    var url = document.getElementById('src-url').value.trim(); var msg = document.getElementById('discover-msg');
+    if (!url) { msg.textContent = 'paste a URL first'; return; }
+    msg.textContent = 'discovering…';
+    fetch('/api/sources/discover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url: url }) })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(res){ if (!res.ok) { msg.textContent = res.d.error || 'failed'; return; } msg.textContent = ''; renderItems(res.d.items || []); })
+      .catch(function(){ msg.textContent = 'request failed'; });
+  });
+  document.getElementById('sel-all').addEventListener('click', function(){ document.querySelectorAll('.disc').forEach(function(c){ c.checked = true; }); });
+  document.getElementById('sel-none').addEventListener('click', function(){ document.querySelectorAll('.disc').forEach(function(c){ c.checked = false; }); });
 </script>
 </body></html>
 `;
