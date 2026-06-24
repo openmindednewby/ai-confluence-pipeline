@@ -1,7 +1,7 @@
 ---
 id: TASK-27
 title: "Wizard phase 5: requirement-change diff (re-run shows what moved)"
-status: todo
+status: done
 requirements: [KAT-10]
 tests: []
 assignee: ~

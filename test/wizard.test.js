@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { renderFeaturePack, renderFeaturePackMarkdown } from '../dist/core/wizard/featurePack.js';
 import {
   extractFirstMermaid, curlsFromAcceptance, buildFeaturePack, wizardCheck, ensureRequirementsDoc, runWizard, orderTasks,
+  reqHashes, diffRequirements,
 } from '../dist/core/wizard/wizard.js';
 import { parseTraceConfig } from '../dist/core/trace/config.js';
 
@@ -198,6 +199,32 @@ test('runWizard: source none + fake AI → writes feature pack (html + md) @KAT-
   assert.ok(existsSync(r.mdPath));
   assert.match(readFileSync(r.htmlPath, 'utf8'), /Feature pack — Login/);
   assert.match(readFileSync(r.mdPath, 'utf8'), /## System data-flow/);
+});
+
+test('diffRequirements: added / changed / removed by content hash', () => {
+  const prev = reqHashes([{ key: 'A', title: 'Alpha', declaredStatus: null }, { key: 'B', title: 'Beta', declaredStatus: null }]);
+  const curr = reqHashes([{ key: 'A', title: 'Alpha v2', declaredStatus: null }, { key: 'C', title: 'Gamma', declaredStatus: null }]);
+  const d = diffRequirements(prev, curr);
+  assert.deepEqual(d.added, ['C']);
+  assert.deepEqual(d.changed, ['A']);
+  assert.deepEqual(d.removed, ['B']);
+});
+
+test('runWizard: first run has no diff; re-run after a requirement edit shows the change', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wz-diff-'));
+  mkdirSync(join(dir, 'docs'), { recursive: true });
+  writeFileSync(join(dir, 'docs/requirements.md'), '# Requirements\n\n- [ ] FEAT-1 Login\n');
+  const config = parseTraceConfig(JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [] }] }));
+
+  const first = await runWizard(config, dir, { feature: 'Login', source: 'none', analyze: false });
+  assert.equal(first.pack.changes, undefined); // first run = no diff
+
+  // edit a requirement's title + add a new one, re-run
+  writeFileSync(join(dir, 'docs/requirements.md'), '# Requirements\n\n- [ ] FEAT-1 Login with SSO\n- [ ] FEAT-2 Logout\n');
+  const second = await runWizard(config, dir, { feature: 'Login', source: 'none', analyze: false });
+  assert.deepEqual(second.pack.changes.added, ['FEAT-2']);
+  assert.deepEqual(second.pack.changes.changed, ['FEAT-1']);
+  assert.match(readFileSync(second.mdPath, 'utf8'), /## Changes since last run[\s\S]*added: FEAT-2/);
 });
 
 test('runWizard: --no-analyze still produces a pack (requirements only, no AI)', async () => {

@@ -36,10 +36,17 @@ export interface FeatureCurl {
   body?: unknown;
   note?: string; // e.g. "replace {id} with a real id that has data"
 }
+export interface FeatureChanges {
+  added: string[];
+  changed: string[];
+  removed: string[];
+}
 export interface FeaturePack {
   feature: string;
   source: string; // jira | confluence | both | none
   generatedAt?: string;
+  /** Requirement diff vs the previous run of this feature (omitted on the first run). */
+  changes?: FeatureChanges;
   requirements: FeatureRequirement[];
   systemMermaid?: string;
   useCases: FeatureUseCase[];
@@ -51,8 +58,19 @@ export interface FeaturePack {
 }
 
 /** Render the same pack as a plain markdown doc (the record-of-truth + Confluence-publishable). */
+function hasChanges(c?: FeatureChanges): c is FeatureChanges {
+  return !!c && (c.added.length > 0 || c.changed.length > 0 || c.removed.length > 0);
+}
+
 export function renderFeaturePackMarkdown(pack: FeaturePack): string {
   const lines: string[] = [`# Feature: ${pack.feature}`, '', `_source: ${pack.source}${pack.generatedAt ? ` · generated ${pack.generatedAt}` : ''}_`, ''];
+  if (hasChanges(pack.changes)) {
+    lines.push('## Changes since last run', '');
+    if (pack.changes.added.length) lines.push(`- added: ${pack.changes.added.join(', ')}`);
+    if (pack.changes.changed.length) lines.push(`- changed: ${pack.changes.changed.join(', ')}`);
+    if (pack.changes.removed.length) lines.push(`- removed: ${pack.changes.removed.join(', ')}`);
+    lines.push('');
+  }
   lines.push('## Requirements', '');
   for (const r of pack.requirements) lines.push(`- \`${r.key}\` ${r.title}${r.status ? ` (${r.status})` : ''}`);
   if (!pack.requirements.length) lines.push('_none_');
@@ -140,6 +158,14 @@ export function renderFeaturePack(pack: FeaturePack, opts: RenderOptions = {}): 
 
   const confluenceLink = pack.docs.confluenceUrl ? `<a href="${esc(pack.docs.confluenceUrl)}">Confluence page</a> · ` : '';
 
+  const changesCard = hasChanges(pack.changes)
+    ? `<section class="card"><h3>Changes since last run</h3><ul>${[
+        pack.changes.added.length ? `<li><b>added:</b> ${pack.changes.added.map(esc).join(', ')}</li>` : '',
+        pack.changes.changed.length ? `<li><b>changed:</b> ${pack.changes.changed.map(esc).join(', ')}</li>` : '',
+        pack.changes.removed.length ? `<li><b>removed:</b> ${pack.changes.removed.map(esc).join(', ')}</li>` : '',
+      ].join('')}</ul></section>`
+    : '';
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Feature pack — ${esc(pack.feature)}</title>
@@ -164,6 +190,8 @@ export function renderFeaturePack(pack: FeaturePack, opts: RenderOptions = {}): 
   <h1>Feature pack — ${esc(pack.feature)}</h1>
   <p class="meta">source: <b>${esc(pack.source)}</b>${pack.generatedAt ? ` · generated ${esc(pack.generatedAt)}` : ''} · ${confluenceLink}<a href="${esc(pack.docs.mdDir)}">markdown</a></p>
   <div class="steps"><span>1 · read the data-flow</span><span>2 · approve the tasks</span><span>3 · run the curls</span><span>4 · verify</span></div>
+
+  ${changesCard}
 
   <h2>Requirements</h2><ul>${reqRows}</ul>
 

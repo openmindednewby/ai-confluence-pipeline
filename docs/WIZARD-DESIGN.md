@@ -109,7 +109,9 @@ a hosted multi-user wizard service; auto-seeding test data; bidirectional task s
 3. **Task ordering heuristic** — explicit `dependsOn` in the analyze output vs inferred from
    requirement/code references vs topological from endpoint call-graph?
 4. **E2E framework** — assume Playwright (repo default) or read it from the trace config's test techs?
-5. **Requirement-change diff** — diff requirements by key+content hash (proposed) and re-analyze only the
-   touched slice, vs full regenerate with a changelog?
+5. ~~**Requirement-change diff**~~ — **RESOLVED (TASK-27):** a per-feature `requirements.snapshot.json`
+   holds each requirement's content hash; a re-run diffs current vs previous → added/changed/removed,
+   shown in the pack ("Changes since last run") + the CLI. (Re-analyzing only the touched slice can come
+   later — today it regenerates but tells you what moved.)
 6. **Feature-pack location & naming** — `.acp/features/<slug>/` (proposed); committed or git-ignored?
 7. **Confluence layout** — one page per feature with child pages per use-case, or a single page?

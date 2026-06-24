@@ -627,6 +627,10 @@ const wizardCmd = program
         now: () => new Date().toISOString().slice(0, 16).replace('T', ' '),
       });
       process.stdout.write(`\n  ${r.pack.requirements.length} requirement(s) · ${r.pack.tasks.length} task(s) · ${r.pack.useCases.length} diagram(s) · ${r.pack.curls.length} curl(s)\n`);
+      const ch = r.pack.changes;
+      if (ch && (ch.added.length || ch.changed.length || ch.removed.length)) {
+        process.stdout.write(`  Changes since last run: +${ch.added.length} added · ~${ch.changed.length} changed · -${ch.removed.length} removed\n`);
+      }
       if (r.confluenceUrl) process.stdout.write(`  Confluence: ${r.confluenceUrl}\n`);
       process.stdout.write(`\n  Feature pack → ${relative(baseDir, r.htmlPath)}\n  Open it, read the data-flow, approve the tasks, run the curls, verify.\n`);
     } catch (err) {

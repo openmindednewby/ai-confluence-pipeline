@@ -21,6 +21,10 @@ A guided idea→dev-ready-pack flow (design: [docs/WIZARD-DESIGN.md](docs/WIZARD
 - **Dependency-ordered, context-rich tasks** — `analyze` emits per-task `dependsOn` + relevant `files`;
   the wizard topo-orders the tasks and inlines code files + the requirement link + prerequisites, so an
   executing agent has everything it needs without hunting.
+- **Ready-made curls with real ids** — a `wizard.fixtures` config map fills `{id}` / `:id` / `{{id}}`
+  placeholders in curl paths + bodies; unresolved names are flagged. Plus a `wizard.baseUrl`.
+- **Requirement-change diff** — a re-run diffs the requirements against a per-feature snapshot and shows
+  what was added / changed / removed (in the pack + CLI), instead of a blind regenerate.
 
 ### Notes
 - Slice 1 wraps the existing `pull-requirements` / `analyze` / `task` / acceptance machinery. Later
