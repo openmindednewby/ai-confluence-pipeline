@@ -64,3 +64,31 @@ test('POST /api/sync without a sync block → configured:false (friendly guidanc
     await s.close();
   }
 });
+
+import { conflictPath, saveState, syncStatePath } from '../dist/core/sync/state.js';
+import { planSync } from '../dist/core/sync/plan.js';
+import { executeSync } from '../dist/core/sync/execute.js';
+import { listLocalRecords } from '../dist/core/sync/localTasks.js';
+import { existsSync } from 'node:fs';
+
+test('POST /api/sync/resolve: take local clears the conflict', async () => {
+  const dir = repoWithSync();
+  // make a title-only conflict
+  writeTask(join(dir, '.acp', 'tasks'), { id: 'TASK-1', title: 'LOCAL', status: 'todo', requirements: [], tests: [], assignee: null, source: 'local', created: today, updated: today, body: 'b' });
+  const adapter = new FakeAdapter([{ id: 'I1', rev: 'r1', fields: { title: 'REMOTE', body: 'b', status: 'open', labels: [] } }]);
+  const state = { '.acp/tasks/TASK-1.md': { remoteId: 'I1', remoteRev: 'r1', base: { title: 'BASE', body: 'b', status: 'open', labels: [] } } };
+  const plan = planSync(listLocalRecords(join(dir), join(dir, '.acp', 'tasks')), await adapter.list(), state);
+  await executeSync(plan, adapter, state, { baseDir: dir, bindingId: 'tasks-gh', tasksRoot: join(dir, '.acp', 'tasks'), idPrefix: 'TASK', today, apply: true, direction: 'both' });
+  saveState(syncStatePath(dir), { version: 1, bindings: { 'tasks-gh': { records: state } } });
+  assert.ok(existsSync(conflictPath(dir, 'tasks-gh', 'I1')));
+
+  const s = await startWebServer({ baseDir: dir, port: 0, syncAdapters: { 'tasks-gh': adapter } });
+  try {
+    const res = await fetch(s.url + '/api/sync/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'TASK-1', take: 'local' }) });
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).take, 'local');
+    assert.equal(existsSync(conflictPath(dir, 'tasks-gh', 'I1')), false);
+  } finally {
+    await s.close();
+  }
+});

@@ -1,14 +1,13 @@
 # Katastasi — Board
 
-_32 task(s) · 12 done · 0 ⚠️ drift._
+_32 task(s) · 13 done · 0 ⚠️ drift._
 
-## todo (19)
+## todo (18)
 
 - **TASK-2** Tag the test suite with @KAT-n keys so requirements show verified in trace · KAT-2, KAT-9
 - **TASK-3** Fix trace init: autodetected node command uses ** glob (node-20 fails) and emits no JUnit · KAT-2
 - **TASK-4** Resolve the 10 Phase 3 sync open questions with the owner · KAT-5
 - **TASK-5** Decide Phase 3 first sync adapter: GitHub Issues (dogfoodable) vs Jira-first · KAT-5
-- **TASK-8** Phase 3 v3: interactive 3-way resolution (0.7.0) · KAT-5
 - **TASK-9** Phase 2.2: link existing unit suites (Jest/pytest/xUnit) to acceptance · KAT-4
 - **TASK-10** Phase 2.2: link Playwright/browser suites · KAT-4
 - **TASK-11** Phase 4: more result adapters (pytest/go test/surefire/cypress) · KAT-8
@@ -32,10 +31,11 @@ _32 task(s) · 12 done · 0 ⚠️ drift._
 
 _(none)_
 
-## done (12)
+## done (13)
 
 - **TASK-6** Phase 3 v1: safe one-way sync + conflict flag (0.5.0) · KAT-5 ✅
 - **TASK-7** Phase 3 v2: field-level auto-merge (0.6.0) · KAT-5 ✅
+- **TASK-8** Phase 3 v3: interactive 3-way resolution (0.7.0) · KAT-5 ✅
 - **TASK-23** Feature wizard slice 1: CLI + HTML feature pack + auth guide + MCP · KAT-10 ✅
 - **TASK-24** Wizard phase 2: per-endpoint/use-case data-flow mermaid (system + each endpoint) · KAT-10 ✅
 - **TASK-25** Wizard phase 3: dependency task ordering + inline agent-context (code+Jira+Confluence) · KAT-10 ✅

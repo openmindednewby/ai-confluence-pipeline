@@ -186,10 +186,19 @@ export function renderWizardPage(): string {
       var s = r.summary;
       var line = '↑'+(s.push+s['create-remote'])+' pushed · ↓'+(s.pull+s['pull-create'])+' pulled · ⇄'+(s.merge||0)+' merged · ='+(s.skip+s.converged)+' in-sync · ⚠️'+s.conflict+' conflict';
       var links = list(r.links, function(l){ return '<li class="muted">linked '+escapeHtml(l.key)+' ↔ '+escapeHtml(l.remoteId)+(l.url?' <a href="'+escapeHtml(l.url)+'" target="_blank">open</a>':'')+'</li>'; });
-      var confs = list(r.conflicts, function(c){ return '<li style="color:var(--bad)">⚠️ conflict '+escapeHtml(c.key||c.remoteId||'')+' ['+escapeHtml((c.fields||[]).join(', '))+']</li>'; });
+      var confs = list(r.conflicts, function(c){ var id = c.key||c.remoteId||''; return '<li style="color:var(--bad)">⚠️ conflict '+escapeHtml(id)+' ['+escapeHtml((c.fields||[]).join(', '))+'] <button class="resolve" data-id="'+escapeHtml(id)+'" data-take="local" style="padding:.1em .5em;font-size:12px">take local</button> <button class="resolve" data-id="'+escapeHtml(id)+'" data-take="remote" style="padding:.1em .5em;font-size:12px;background:#444">take remote</button></li>'; });
       return '<section class="card"><b>'+escapeHtml(r.bindingId)+'</b> ('+escapeHtml(r.remoteType)+'): '+line+'<ul style="margin:.4em 0">'+links+confs+'</ul></section>';
     });
     box.innerHTML = h;
+    document.querySelectorAll('.resolve').forEach(function(b){
+      b.addEventListener('click', function(){
+        var msg = document.getElementById('sync-msg'); msg.textContent = 'resolving…';
+        fetch('/api/sync/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: b.getAttribute('data-id'), take: b.getAttribute('data-take') }) })
+          .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+          .then(function(res){ if (!res.ok){ msg.textContent = res.d.error||'failed'; return; } msg.textContent='resolved — re-previewing…'; runSyncReq(false); })
+          .catch(function(){ msg.textContent='request failed'; });
+      });
+    });
   }
   function runSyncReq(apply){
     var msg = document.getElementById('sync-msg'); msg.textContent = apply?'applying…':'previewing…';

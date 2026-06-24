@@ -64,8 +64,9 @@ A 3-way reconciler for `.acp/tasks ⇄ GitHub issues / Jira` — never silently 
 - **MCP** — `sync_preview` / `sync_apply` (22 tools).
 
 ### Notes
-- v1 is conflict-flagging; **v2 adds field-level auto-merge** (`sync.mergeStrategy: "field-merge"` —
-  disjoint-field edits merge, same-field divergence stays a conflict). v3 = interactive resolution.
+- v1 conflict-flagging; **v2 field-level auto-merge** (`sync.mergeStrategy: "field-merge"`); **v3
+  interactive resolution** — `katastasi sync resolve [id] --take local|remote` (+ MCP `sync_resolve` +
+  take-local/remote buttons in the web wizard). Phase 3 complete.
 
 ## [0.4.0] — 2026-06-22 — Acceptance test runner (Phase 2)
 

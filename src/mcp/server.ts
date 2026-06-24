@@ -22,7 +22,7 @@ import { loadTraceConfig } from '../core/trace/config.js';
 import { runTrace, renderAll, requirementStatus, gatherRequirements } from '../core/trace/index.js';
 import { runAcceptance } from '../core/trace/acceptance/orchestrate.js';
 import { runWizard } from '../core/wizard/wizard.js';
-import { runSync } from '../core/sync/sync.js';
+import { runSync, listConflicts, resolveConflict } from '../core/sync/sync.js';
 import { resolveStoreDir } from '../core/trace/store.js';
 import { resolveTasksConfig } from '../core/trace/config.js';
 import { addTask, listTasksFiltered, getTask, setTaskStatus, linkTask } from '../core/trace/tasks/ops.js';
@@ -355,6 +355,40 @@ server.registerTool(
     },
   },
   syncToolHandler(true),
+);
+
+server.registerTool(
+  'sync_resolve',
+  {
+    title: 'Resolve a sync conflict (take local or remote)',
+    description:
+      'List open sync conflicts, or resolve one by taking the local or the remote side. Resolving applies ' +
+      "that side to both, re-baselines the sync state, and clears the conflict file so the next sync is " +
+      'clean. Omit `id` to just list the open conflicts.',
+    inputSchema: {
+      configPath: z.string().optional().describe('Path to acp-trace.json (default ./acp-trace.json).'),
+      id: z.string().optional().describe('Task key or remote id of the conflict (omit to list).'),
+      take: z.enum(['local', 'remote']).optional().describe('Which side to keep (required when id is given).'),
+      binding: z.string().optional().describe('Restrict to this binding id.'),
+    },
+  },
+  async (args) => {
+    try {
+      const configPath = resolve(args.configPath ?? 'acp-trace.json');
+      const config = loadTraceConfig(configPath);
+      const baseDir = dirname(configPath);
+      if (!args.id) {
+        const conflicts = listConflicts(baseDir);
+        const text = conflicts.length ? conflicts.map((c) => `⚠️ ${c.binding}/${c.id} → ${c.file}`).join('\n') : 'No open conflicts.';
+        return { content: [{ type: 'text' as const, text }], structuredContent: { conflicts } };
+      }
+      if (args.take !== 'local' && args.take !== 'remote') return errorResult(new Error('take must be "local" or "remote" when id is given'));
+      const r = await resolveConflict(config, baseDir, { id: args.id, take: args.take, binding: args.binding });
+      return { content: [{ type: 'text' as const, text: `Resolved ${r.bindingId}/${r.key} ↔ ${r.remoteId} — took ${r.take}.` }], structuredContent: r as unknown as Record<string, unknown> };
+    } catch (err) {
+      return errorResult(err);
+    }
+  },
 );
 
 server.registerTool(

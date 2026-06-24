@@ -3,13 +3,14 @@
  * plan, executes the safe subset, and persists the state. Credentials come from env (GITHUB_TOKEN,
  * JIRA_*). Adapters are injectable per binding so the whole flow is tested with the fake (no network).
  */
-import { join } from 'node:path';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import type { TraceConfig } from '../trace/config.js';
 import { makeStatusMapper } from './statusMapper.js';
-import { listLocalRecords } from './localTasks.js';
+import { listLocalRecords, writeRecordToTask } from './localTasks.js';
 import { planSync } from './plan.js';
 import { executeSync, type Direction, type SyncResult } from './execute.js';
-import { bindingRecords, loadState, saveState, syncStatePath } from './state.js';
+import { bindingRecords, conflictPath, loadState, saveState, syncStatePath } from './state.js';
 import { GithubAdapter } from './adapters/github.js';
 import { JiraAdapter } from './adapters/jira.js';
 import type { SyncAdapter } from './model.js';
@@ -82,6 +83,83 @@ export async function runSync(config: TraceConfig, baseDir: string, opts: SyncRu
 
   if (apply) saveState(statePath, state);
   return out;
+}
+
+function mapperFor(binding: Binding): ReturnType<typeof makeStatusMapper> {
+  return makeStatusMapper(binding.statusMap ?? (binding.remote.type === 'github' ? DEFAULT_GITHUB_STATUS_MAP : undefined));
+}
+
+/** The unresolved conflict files on disk (for `katastasi sync resolve` with no id). */
+export function listConflicts(baseDir: string): Array<{ binding: string; id: string; file: string }> {
+  const root = join(baseDir, '.acp', 'sync', 'conflicts');
+  if (!existsSync(root)) return [];
+  const out: Array<{ binding: string; id: string; file: string }> = [];
+  for (const binding of readdirSync(root)) {
+    try {
+      for (const f of readdirSync(join(root, binding))) {
+        if (f.endsWith('.md')) out.push({ binding, id: f.replace(/\.md$/, ''), file: `.acp/sync/conflicts/${binding}/${f}` });
+      }
+    } catch {
+      /* not a dir */
+    }
+  }
+  return out;
+}
+
+export interface ResolveOptions {
+  id: string; // a local task key/basename, or the remote id
+  take: 'local' | 'remote';
+  binding?: string;
+  today?: string;
+  env?: NodeJS.ProcessEnv;
+  adapters?: Record<string, SyncAdapter>;
+}
+
+export interface ResolveResult {
+  bindingId: string;
+  key: string;
+  remoteId: string;
+  take: 'local' | 'remote';
+}
+
+/** Resolve a flagged conflict by taking the local or the remote side; re-baselines + clears the file. */
+export async function resolveConflict(config: TraceConfig, baseDir: string, opts: ResolveOptions): Promise<ResolveResult> {
+  const env = opts.env ?? process.env;
+  const today = opts.today ?? isoToday();
+  const statePath = syncStatePath(baseDir);
+  const state = loadState(statePath);
+  const bindings = (config.sync?.bindings ?? []).filter((b) => !opts.binding || b.id === opts.binding);
+
+  for (const binding of bindings) {
+    const records = bindingRecords(state, binding.id);
+    const key = Object.keys(records).find(
+      (k) => k === opts.id || basename(k) === opts.id || basename(k).replace(/\.md$/, '') === opts.id || records[k].remoteId === opts.id,
+    );
+    if (!key) continue;
+
+    const st = records[key];
+    const adapter = opts.adapters?.[binding.id] ?? buildAdapter(binding, env);
+    const mapper = mapperFor(binding);
+    const tasksRoot = join(baseDir, binding.dir ?? '.acp/tasks');
+    const local = listLocalRecords(baseDir, tasksRoot, mapper).find((l) => l.key === key);
+    const remote = await adapter.read(st.remoteId);
+    if (!local) throw new Error(`local task ${key} is gone — restore it before resolving`);
+
+    if (opts.take === 'local') {
+      const updated = await adapter.update(st.remoteId, local.record, remote.rev);
+      records[key] = { remoteId: updated.id, remoteRev: updated.rev, base: local.record, lastSyncedAt: today };
+    } else {
+      writeRecordToTask(local.path, remote.fields, today, mapper);
+      records[key] = { remoteId: st.remoteId, remoteRev: remote.rev, base: remote.fields, lastSyncedAt: today };
+    }
+    for (const cid of [st.remoteId, key]) {
+      const p = conflictPath(baseDir, binding.id, cid);
+      if (existsSync(p)) rmSync(p);
+    }
+    saveState(statePath, state);
+    return { bindingId: binding.id, key, remoteId: st.remoteId, take: opts.take };
+  }
+  throw new Error(`no conflict / record found for "${opts.id}"`);
 }
 
 /** Read-only view of the recorded links per binding (for `katastasi sync status`). */

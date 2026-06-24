@@ -15,7 +15,7 @@ import { pullSelected, type PullItem } from './pull.js';
 import { loadTraceConfig, parseTraceConfig, type TraceConfig } from '../trace/config.js';
 import { runWizard } from '../wizard/wizard.js';
 import { defaultChat, aiConfigFromEnv, type ChatFn } from '../analyze/ai.js';
-import { runSync } from '../sync/sync.js';
+import { runSync, resolveConflict } from '../sync/sync.js';
 import type { SyncAdapter } from '../sync/model.js';
 
 export interface WebServerContext {
@@ -132,6 +132,17 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse, c
         ...(ctx.syncAdapters ? { adapters: ctx.syncAdapters } : {}),
       });
       return json(res, 200, { configured: true, applied: !!body.apply, results });
+    }
+    if (method === 'POST' && url === '/api/sync/resolve') {
+      let body: { id?: string; take?: 'local' | 'remote'; binding?: string } = {};
+      try {
+        body = JSON.parse(await readBody(req)) as typeof body;
+      } catch {
+        return json(res, 400, { error: 'invalid JSON body' });
+      }
+      if (!body.id || (body.take !== 'local' && body.take !== 'remote')) return json(res, 400, { error: 'id + take (local|remote) are required' });
+      const result = await resolveConflict(configFor(ctx.baseDir), ctx.baseDir, { id: body.id, take: body.take, binding: body.binding, env: readEnvValues(ctx.baseDir), ...(ctx.syncAdapters ? { adapters: ctx.syncAdapters } : {}) });
+      return json(res, 200, result);
     }
     if (url.startsWith('/api/')) return json(res, 404, { error: `no endpoint ${method} ${url}` });
     return send(res, 404, 'Not found', 'text/plain');

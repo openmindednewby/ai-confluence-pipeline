@@ -1,9 +1,9 @@
 # Phase 3 — Bidirectional sync (incremental, safe)
 
-> **v1 SHIPPED 2026-06-24.** Built per the build-start decisions: GitHub + Jira adapters, combined
-> safe-both, `.acp/tasks ⇄ issues` incl. status, preview-default + auto-create + flag-deletions.
-> User guide: **[SYNC.md](SYNC.md)**. v2 (field-merge) + v3 (interactive) still pending. This doc is the
-> design record.
+> **v1 + v2 + v3 ALL SHIPPED 2026-06-24.** v1 (safe-both, conflict-flag), v2 (field-level auto-merge),
+> v3 (interactive `sync resolve`). GitHub + Jira adapters, `.acp/tasks ⇄ issues` incl. status,
+> preview-default + auto-create + flag-deletions. User guide: **[SYNC.md](SYNC.md)**. **Phase 3 complete.**
+> This doc is the design record.
 
 *Scope drafted 2026-06-23. The reconciliation layer: edit either side — local markdown or Jira /
 Confluence / issues — and have them meet in the middle **without ever silently losing an edit**.
@@ -118,9 +118,10 @@ A conflicted record is **not applied**; both versions are written to
    merged record to both sides, optimistic-concurrency safe, needs direction `both`); `sync.mergeStrategy:
    "field-merge"`. Disjoint-field edits merge; same-field divergence stays a conflict.
 
-**v3 — interactive resolution (ships as 0.7.0):**
-10. **Interactive resolver** — `katastasi sync resolve <id> --take local|remote` (and edit) + a portal
-    conflict view; records the resolution and continues. `mergeStrategy: interactive`.
+**v3 — interactive resolution ✅ (2026-06-24):**
+10. **Interactive resolver** — `resolveConflict()` + `listConflicts()`; takes the local or remote side,
+    re-baselines the state, clears the conflict file. Surfaced as `katastasi sync resolve [id] --take`,
+    MCP `sync_resolve`, and take-local/take-remote buttons in the web wizard.
 11. **Docs pass + release** per sub-phase.
 
 ## 5. Out of scope (later / never)
