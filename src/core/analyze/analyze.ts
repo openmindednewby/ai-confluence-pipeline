@@ -39,6 +39,8 @@ export interface AnalyzeOutput {
   technicalAnalysis: string;
   /** Mermaid flowchart of the end-to-end DATA FLOW across the system (client → endpoints → services → stores). */
   systemDiagram?: string;
+  /** Every DB/migration change needed for production (only when DB changes were requested). */
+  dbChanges?: string[];
   tasks: AnalyzeTask[];
 }
 export interface AnalyzeResult {
@@ -52,6 +54,8 @@ export interface AnalyzeResult {
   nativeTasks: string[];
   /** End-to-end system data-flow diagram (mermaid), when produced. */
   systemDiagram?: string;
+  /** DB/migration changes for production (when requested). */
+  dbChanges?: string[];
   /** 'ask' (produced an open-questions form) or 'full' (produced the tech docs + tasks). */
   mode: 'ask' | 'full';
   /** In ask mode, the path of the generated interactive form. */
@@ -71,6 +75,8 @@ export interface AnalyzeOptions {
   scaffold?: boolean;
   /** Create native `.acp/tasks` from the stories (default true; local mode only). */
   writeTasks?: boolean;
+  /** When true, require the model to enumerate every DB/migration change needed (the dev said yes). */
+  dbChanges?: boolean;
   /** Ask mode: produce an open-questions form (decisions to resolve) instead of the final docs. */
   ask?: boolean;
   /** Full mode: stakeholder answers (markdown) to incorporate into the analysis. */
@@ -84,6 +90,7 @@ produce a precise technical gap analysis and a development-ready breakdown. Resp
   "gapAnalysis": "<markdown: which requirements appear implemented vs missing vs partial, and why>",
   "technicalAnalysis": "<markdown Confluence page: architecture, API endpoints + contracts, data flow; include mermaid diagrams in \\\`\\\`\\\`mermaid fences>",
   "systemDiagram": "<a mermaid 'flowchart LR' body ONLY (no fences) showing the END-TO-END DATA FLOW across the whole feature: client/UI → each API endpoint → services/handlers → datastores → external systems, with LABELLED edges naming the data that moves (e.g. POST /login -->|credentials| AuthSvc; AuthSvc -->|user row| DB). This is the full system design the developer reads first.>",
+  "dbChanges": ["<EVERY database/migration change this feature needs in production — new/altered tables, columns (with type + null/default), indexes, constraints, enum values, and any data backfill — each precise enough to write the migration from. Omit or [] only if the feature truly needs none.>"],
   "tasks": [
     { "key": "<requirement key, reuse the given keys>", "title": "<short>",
       "acceptanceCriteria": ["<testable criterion>", "..."],
@@ -191,6 +198,7 @@ export function validateOutput(raw: unknown): AnalyzeOutput {
     gapAnalysis: typeof o.gapAnalysis === 'string' ? o.gapAnalysis : '(none)',
     technicalAnalysis: typeof o.technicalAnalysis === 'string' ? o.technicalAnalysis : '(none)',
     ...(typeof o.systemDiagram === 'string' && o.systemDiagram.trim() ? { systemDiagram: o.systemDiagram } : {}),
+    ...(Array.isArray(o.dbChanges) && o.dbChanges.length ? { dbChanges: o.dbChanges.map(String) } : {}),
     tasks: tasks.map((t) => ({
       key: String((t as AnalyzeTask).key ?? '').toUpperCase(),
       title: String((t as AnalyzeTask).title ?? ''),
@@ -264,6 +272,9 @@ export async function analyze(config: TraceConfig, baseDir: string, opts: Analyz
   if (opts.answers && opts.answers.trim()) {
     messages[1].content += `\n\nSTAKEHOLDER ANSWERS (incorporate these resolved decisions):\n${opts.answers}`;
   }
+  if (opts.dbChanges) {
+    messages[1].content += '\n\nThis feature REQUIRES DATABASE CHANGES — you MUST populate "dbChanges" with every schema/migration change needed for production (tables, columns + types/nullability/defaults, indexes, constraints, enum values, data backfills). Be exhaustive and precise enough to write the migration.';
+  }
   const out = validateOutput(extractJson(await chat(messages)));
 
   mkdirSync(join(outDir, 'tasks'), { recursive: true });
@@ -271,7 +282,8 @@ export async function analyze(config: TraceConfig, baseDir: string, opts: Analyz
   write('gap-analysis.md', `# Gap Analysis\n\n${out.gapAnalysis}\n`);
   const techBody = out.technicalAnalysis.startsWith('#') ? out.technicalAnalysis : `# Technical Analysis\n\n${out.technicalAnalysis}`;
   const systemSection = out.systemDiagram ? `\n\n## System data-flow\n\n\`\`\`mermaid\n${out.systemDiagram.trim()}\n\`\`\`` : '';
-  write('technical-analysis.md', `${techBody}${systemSection}\n`);
+  const dbSection = out.dbChanges?.length ? `\n\n## Database / migration changes\n\n${out.dbChanges.map((c) => `- [ ] ${c}`).join('\n')}` : '';
+  write('technical-analysis.md', `${techBody}${systemSection}${dbSection}\n`);
   const epic = `# Technical Analysis — Tasks\n\n${out.tasks.map((t) => `- **${t.key}** ${t.title}`).join('\n')}\n`;
   write(join('tasks', 'epic.md'), epic);
   for (const t of out.tasks) write(join('tasks', `${t.key}.md`), taskMarkdown(t));
@@ -303,5 +315,5 @@ export async function analyze(config: TraceConfig, baseDir: string, opts: Analyz
   const nativeTasks =
     opts.writeTasks === false ? [] : createTasksFromAnalyze(baseDir, config, out.tasks.map((t) => ({ key: t.key, title: t.title })));
 
-  return { outDir, files, tasks: out.tasks, scaffolded, acceptanceSpecs, nativeTasks, mode: 'full', ...(out.systemDiagram ? { systemDiagram: out.systemDiagram } : {}) };
+  return { outDir, files, tasks: out.tasks, scaffolded, acceptanceSpecs, nativeTasks, mode: 'full', ...(out.systemDiagram ? { systemDiagram: out.systemDiagram } : {}), ...(out.dbChanges?.length ? { dbChanges: out.dbChanges } : {}) };
 }

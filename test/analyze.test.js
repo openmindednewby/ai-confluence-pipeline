@@ -163,3 +163,20 @@ test('analyze: systemDiagram is returned + written into technical-analysis.md', 
   assert.match(r.systemDiagram, /flowchart LR/);
   assert.match(readFileSync(join(root, 'ta', 'technical-analysis.md'), 'utf8'), /## System data-flow[\s\S]*credentials/);
 });
+
+// DB-changes: gated by the wizard's "need DB changes?" → AI enumerates them into the doc.
+test('analyze: dbChanges enumerated + written to ## Database / migration changes', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'rtm-db-'));
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs', 'requirements.md'), '- [ ] PROJ-1 SSO login');
+  const config = parseTraceConfig(JSON.stringify({ scopes: [{ requirements: [{ type: 'markdown', path: 'docs/requirements.md' }], tests: [] }] }));
+  let promptSawDb = false;
+  const chat = async (msgs) => {
+    promptSawDb = /REQUIRES DATABASE CHANGES/.test(msgs[1].content);
+    return JSON.stringify({ gapAnalysis: 'g', technicalAnalysis: '# T\n\nx', dbChanges: ['add column users.sso_id varchar null', 'new table sso_sessions(...)'], tasks: [{ key: 'PROJ-1', title: 'SSO', acceptanceCriteria: [], tests: [] }] });
+  };
+  const r = await analyze(config, root, { chat, outDir: 'ta', scaffold: false, dbChanges: true });
+  assert.equal(promptSawDb, true); // the instruction was added because dbChanges:true
+  assert.deepEqual(r.dbChanges, ['add column users.sso_id varchar null', 'new table sso_sessions(...)']);
+  assert.match(readFileSync(join(root, 'ta', 'technical-analysis.md'), 'utf8'), /## Database \/ migration changes[\s\S]*users\.sso_id/);
+});
