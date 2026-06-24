@@ -20,6 +20,8 @@ export interface Task {
   updated: string;
   body: string;
   labels?: string[]; // optional; synced to issue/Jira labels (Phase 3). Omitted when empty.
+  remoteId?: string; // optional; the linked issue/Jira id once synced (Phase 3). Omitted when absent.
+  remoteUrl?: string; // optional; deep link to the linked remote record. Omitted when absent.
 }
 
 // ── Frontmatter (minimal, tailored to task fields — not a general YAML parser) ──────────────
@@ -80,6 +82,8 @@ export function serializeTask(t: Task): string {
     `requirements: ${arr(t.requirements)}`,
     `tests: ${arr(t.tests)}`,
     ...(t.labels && t.labels.length ? [`labels: ${arr(t.labels)}`] : []),
+    ...(t.remoteId ? [`remoteId: ${scalar(t.remoteId)}`] : []),
+    ...(t.remoteUrl ? [`remoteUrl: ${scalar(t.remoteUrl)}`] : []),
     `assignee: ${t.assignee ? scalar(t.assignee) : '~'}`,
     `source: ${t.source}`,
     `created: ${t.created}`,
@@ -108,6 +112,8 @@ export function parseTask(md: string): Task {
     body,
   };
   if (Array.isArray(fm.labels)) task.labels = fm.labels as string[];
+  if (typeof fm.remoteId === 'string') task.remoteId = fm.remoteId;
+  if (typeof fm.remoteUrl === 'string') task.remoteUrl = fm.remoteUrl;
   return task;
 }
 
