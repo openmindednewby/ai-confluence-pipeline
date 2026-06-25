@@ -3,7 +3,13 @@
 All notable changes to **Katastasi** are documented here. Format: [Keep a Changelog](https://keepachangelog.com),
 versioning: [SemVer](https://semver.org).
 
-## [Unreleased] — Feature Lifecycle Wizard (slice 1)
+## [0.5.0] — 2026-06-25 — Web wizard, bidirectional sync, agent skills
+
+The big batch since 0.4.0: the local **web wizard** (`katastasi web`), **bidirectional sync** v1–v3
+(`katastasi sync`), **agent skills** (`katastasi init-skills`), gated **DB/migration changes** in the
+feature pack, and the brand. Get started: [docs/GET_STARTED.md](docs/GET_STARTED.md).
+
+### Feature Lifecycle Wizard
 
 A guided idea→dev-ready-pack flow (design: [docs/WIZARD-DESIGN.md](docs/WIZARD-DESIGN.md)).
 
@@ -31,7 +37,7 @@ A guided idea→dev-ready-pack flow (design: [docs/WIZARD-DESIGN.md](docs/WIZARD
   phases (per-design): per-endpoint data-flow diagrams, dependency task ordering, curl id-sourcing,
   approve/verify export, requirement-change diff.
 
-## [Unreleased] — DB-changes + agent skills + web wizard (slice 1)
+### DB-changes, agent skills + web wizard
 
 ### Added
 - **`katastasi web`** (slice 1) — a 100%-local browser onboarding wizard (no login): a loopback
@@ -45,7 +51,7 @@ A guided idea→dev-ready-pack flow (design: [docs/WIZARD-DESIGN.md](docs/WIZARD
   `.github/copilot-instructions.md`) so Claude Code & Copilot drive every action (onboard / design / sync
   / trace / test / tasks) as one-liners. Idempotent; run once per service.
 
-## [Unreleased] — Bidirectional sync v1 (Phase 3)
+### Bidirectional sync (Phase 3)
 
 A 3-way reconciler for `.acp/tasks ⇄ GitHub issues / Jira` — never silently loses an edit
 (guide: [docs/SYNC.md](docs/SYNC.md)).
