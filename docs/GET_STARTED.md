@@ -54,6 +54,6 @@ Add to your MCP config (e.g. `.mcp.json`):
 { "mcpServers": { "katastasi": { "command": "npx", "args": ["-y", "katastasi-mcp"] } } }
 ```
 
-> **Note:** the `web`, `sync`, and `init-skills` commands require **katastasi ≥ 0.5.0**. Until that's
-> published, use the from-source path: `git clone https://github.com/openmindednewby/katastasi && cd
-> katastasi && npm install && npm run build`, then `node dist/cli/index.js <command>`.
+> **Note:** the `web`, `sync`, and `init-skills` commands need **katastasi ≥ 0.5.0** — now published, so
+> `npx katastasi@latest …` works. Prefer source? `git clone https://github.com/openmindednewby/katastasi
+> && cd katastasi && npm install && npm run build`, then `node dist/cli/index.js <command>`.
