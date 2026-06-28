@@ -75,7 +75,8 @@ function indexPage(dir: string): string {
     'font-weight:600;color:#0969da;background:#f6f8fa;border:1px solid #d0d7de;border-radius:8px;padding:7px 12px}' +
     '.topnav a:hover{border-color:#0969da}</style></head><body>' +
     '<h1>Requirements Traceability — all projects</h1>' +
-    '<div class="topnav"><a href="https://map.dloizides.com" target="_blank" rel="noopener">🗺️ Deployment Map → map.dloizides.com</a></div>' +
+    '<div class="topnav"><a href="https://map.dloizides.com" target="_blank" rel="noopener">🗺️ Deployment Map → map.dloizides.com</a>' +
+    '<a href="https://map.dloizides.com/roadmap.html" target="_blank" rel="noopener" style="margin-left:8px">🧭 Roadmap</a></div>' +
     '<table><thead><tr><th>Project</th><th>Coverage</th><th>Verified</th><th>Failing</th><th>Commit</th><th>Updated</th></tr></thead>' +
     `<tbody>${body}</tbody></table></body></html>`
   );
