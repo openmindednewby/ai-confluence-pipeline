@@ -70,8 +70,12 @@ function indexPage(dir: string): string {
     '<!doctype html><html><head><meta charset="utf-8"><title>RTM collector</title>' +
     '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:32px;color:#24292f}' +
     'h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #eaeef2}' +
-    'th{background:#f6f8fa;font-size:12px;text-transform:uppercase;color:#57606a}a{color:#0969da}</style></head><body>' +
+    'th{background:#f6f8fa;font-size:12px;text-transform:uppercase;color:#57606a}a{color:#0969da}' +
+    '.topnav{margin:0 0 18px;font-size:13px}.topnav a{display:inline-flex;gap:6px;align-items:center;text-decoration:none;' +
+    'font-weight:600;color:#0969da;background:#f6f8fa;border:1px solid #d0d7de;border-radius:8px;padding:7px 12px}' +
+    '.topnav a:hover{border-color:#0969da}</style></head><body>' +
     '<h1>Requirements Traceability — all projects</h1>' +
+    '<div class="topnav"><a href="https://map.dloizides.com" target="_blank" rel="noopener">🗺️ Deployment Map → map.dloizides.com</a></div>' +
     '<table><thead><tr><th>Project</th><th>Coverage</th><th>Verified</th><th>Failing</th><th>Commit</th><th>Updated</th></tr></thead>' +
     `<tbody>${body}</tbody></table></body></html>`
   );
