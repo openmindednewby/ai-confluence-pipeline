@@ -10,7 +10,7 @@ const CHROME = ['C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].find(p => fs.existsSync(p));
-const MERMAID = path.resolve(__dirname, '../../docs/_tools/vendor/mermaid.min.js');
+const MERMAID = path.resolve(__dirname, 'vendor/mermaid.min.js'); // repo-vendored, self-contained (no cross-repo path)
 const WIDTH = 1400; // logical render width; height derived from the SVG viewBox
 
 function htmlFor(src) {
